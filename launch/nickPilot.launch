@@ -1,0 +1,49 @@
+<launch>
+  <node pkg="waypoint_control"
+    type="waypoint_control"
+    name="waypoint_control_node"
+    output="screen">
+    <!-- DO NOT CHANGE NAME FROM waypoint_control_node, this package is coded to look there -->
+
+    <!-- Safety params -->
+    <param name="vx_max" value="0.5"/>
+    <param name="vy_max" value="0.5"/>
+    <param name="vz_max" value="0.3"/>
+    <param name="ax_max" value="0.85"/>
+    <param name="ay_max" value="0.85"/>
+    <param name="az_max" value="1.0"/>
+    <param name="waypointHitDist" value="0.2"/> <!-- Must be this close to record passage through wpt -->
+    
+    <!-- Position Control parameters -->
+    <param name="mass" value="0.7762"/>       <!-- kg -->
+    <param name="gz" value="9.81"/>          <!-- m/s^2 -->
+    <param name="thrustRatio" value="1.5"/>  <!-- maxThrust/Weight -->
+    <param name="kpX" value="3.4"/>
+    <param name="kpY" value="3.4"/>
+    <param name="kpZ" value="2.2"/>
+    <param name="kvX" value="2.9"/>
+    <param name="kvY" value="2.9"/>
+    <param name="kvZ" value="1.9"/>
+    <param name="kiX" value="0.25"/>
+    <param name="kiY" value="0.25"/>
+    <param name="kiZ" value="0.3"/>
+    <param name="maxInteg_X" value="1.5"/>
+    <param name="maxInteg_Y" value="1.5"/>
+    <param name="maxInteg_Z" value="1.5"/>
+
+    <!-- Arena parameters -->
+    <param name="xCenter" value="0.0"/> <!-- dist btwn origin of arena center and WRW0 -->
+    <param name="yCenter" value="0.0"/>
+    <param name="zCenter" value="0.0"/>
+    <!-- NOTE: gps_kf sets initial pose/vel to 0 -->
+
+    <!-- Misc parameters -->
+    <param name="quadName" type="string" value="Valkyrie"/>
+    <param name="quadPoseTopic" type="string" value="Valkyrie/local_odom"/>
+    <param name="quadWptTopic" type="string" value="Valkyrie/refPose"/> <!-- topic for single wpts -->
+    <param name="quadWptListTopic" type="string" value="PosControl/Path/Quad1"/> <!-- topic for lists of wpts -->
+    <param name="publishPVA_Topic" type="string" value="px4_control/PVA_Ref"/>
+    <param name="gps_fps" value="20"/>
+
+  </node>
+</launch>
