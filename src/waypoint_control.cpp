@@ -24,6 +24,7 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
   counter=0;
   poseTime=0.0;
   wptTime=0.0;
+  stepCounter=0;
 
   //read inputs from file
   ros::param::get("waypoint_control_node/kpX",kp(0));
@@ -55,6 +56,7 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
   {
     next_wpt=arenaCenter;
     next_wpt(2)=next_wpt(2)+1; //take off before doing anything stupid
+    numPathsSoFar=0;
   }
   next_vel(0)=0; next_vel(1)=0; next_vel(2)=0;
   next_acc(0)=0; next_acc(1)=0; next_acc(2)=0;
@@ -65,7 +67,7 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
   //advertise on message topic specified in input file.  USE px4_control/PVA_Ref WITH MARCELINO'S CONTROLLER
   pvaRef_pub_ = nh.advertise<px4_control::PVA>(publishtopicname, 10);
   ROS_INFO("Publisher created on topic %s",publishtopicname.c_str());
-  pose_sub_ = nh.subscribe(quadPoseTopic, 10, &waypointControl::poseCallback_error,
+  pose_sub_ = nh.subscribe(quadPoseTopic, 10, &waypointControl::poseCallback,
                             this, ros::TransportHints().tcpNoDelay());
   waypoint_sub_ = nh.subscribe(quadWptTopic,10,&waypointControl::wptCallback,
                             this, ros::TransportHints().tcpNoDelay());
@@ -74,9 +76,9 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
   ROS_INFO("Subscribers successfully created.");
 
   //get initial pose
-//  ROS_INFO("Waiting for first position measurement...");
-//  initPose_ = ros::topic::waitForMessage<nav_msgs::Odometry>(quadPoseTopic);
-//  ROS_INFO("Initial position: %f\t%f\t%f", initPose_->pose.pose.position.x, initPose_->pose.pose.position.y, initPose_->pose.pose.position.z);
+  ROS_INFO("Waiting for first position measurement...");
+  initPose_ = ros::topic::waitForMessage<nav_msgs::Odometry>(quadPoseTopic);
+  ROS_INFO("Initial position: %f\t%f\t%f", initPose_->pose.pose.position.x, initPose_->pose.pose.position.y, initPose_->pose.pose.position.z);
 //  next_wpt(0)=initPose_->pose.pose.position.x;
 //  next_wpt(1)=initPose_->pose.pose.position.y;
 //  next_wpt(2)=initPose_->pose.pose.position.z+1; //1m above initial pose
@@ -84,7 +86,7 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
 
 
 
-void waypointControl::poseCallback_error(const nav_msgs::Odometry::ConstPtr& msg)
+void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 { //Sends PVA_Ref based on current PVA when received
 
   //Send new PVA when new KFPose received
@@ -123,6 +125,8 @@ void waypointControl::poseCallback_error(const nav_msgs::Odometry::ConstPtr& msg
   //uses the PVA message from px4_control package
   px4_control::PVA PVA_Ref_msg;
   PVA_Ref_msg.yaw=0.0;
+
+//  //Move to next point with PID
 //  PVA_Ref_msg.Pos.x=poseCurr(0)+dt_default*velCurr(0)+dt_default*dt_default*0.5*uPID(0);
 //  PVA_Ref_msg.Pos.y=poseCurr(1)+dt_default*velCurr(1)+dt_default*dt_default*0.5*uPID(1);
 //  PVA_Ref_msg.Pos.z=poseCurr(2)+dt_default*velCurr(2)+dt_default*dt_default*0.5*uPID(2);
@@ -132,6 +136,8 @@ void waypointControl::poseCallback_error(const nav_msgs::Odometry::ConstPtr& msg
 //  PVA_Ref_msg.Acc.x=uPID(0);
 //  PVA_Ref_msg.Acc.y=uPID(1);
 //  PVA_Ref_msg.Acc.z=uPID(2);
+
+  //Move to next wpt in one step
   PVA_Ref_msg.Pos.x=next_wpt(0);
   PVA_Ref_msg.Pos.y=next_wpt(1);
   PVA_Ref_msg.Pos.z=next_wpt(2);
@@ -141,6 +147,9 @@ void waypointControl::poseCallback_error(const nav_msgs::Odometry::ConstPtr& msg
   PVA_Ref_msg.Acc.x=0;
   PVA_Ref_msg.Acc.y=0;
   PVA_Ref_msg.Acc.z=0;
+
+  //Move to next wpt in multiple substeps
+  double substep=stepCounter/stepsToNextWpt;
 
   pvaRef_pub_.publish(PVA_Ref_msg);
 }
@@ -157,39 +166,6 @@ void waypointControl::wptAccListCallback(const nav_msgs::Path::ConstPtr &msg)
 {
   static int acccounter=0;
   acccounter++;
-}
-
-
-void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr &msg)
-{ //When finished, will handle proper timing of the next wpt
-  
-  static ros::Time t_last_proc = msg->header.stamp;
-  double dt = (msg->header.stamp - t_last_proc).toSec();
-  t_last_proc = msg->header.stamp;
-  
-  //PID3 structure can also be used here
-  poseCurr(0)=msg->pose.pose.position.x;
-  poseCurr(1)=msg->pose.pose.position.y;
-  poseCurr(2)=msg->pose.pose.position.z;
-  velCurr(0)=msg->twist.twist.linear.x;
-  velCurr(1)=msg->twist.twist.linear.y;
-  velCurr(2)=msg->twist.twist.linear.z;
-
-  checkArrival(poseCurr);
-
-  px4_control::PVA PVA_Ref_msg;
-  PVA_Ref_msg.yaw=0.0;
-  PVA_Ref_msg.Pos.x=next_wpt(0);
-  PVA_Ref_msg.Pos.y=next_wpt(1);
-  PVA_Ref_msg.Pos.z=next_wpt(2);
-  PVA_Ref_msg.Vel.x=0;
-  PVA_Ref_msg.Vel.y=0;
-  PVA_Ref_msg.Vel.z=0;
-  PVA_Ref_msg.Acc.x=0;
-  PVA_Ref_msg.Acc.y=0;
-  PVA_Ref_msg.Acc.z=0;
-
-  pvaRef_pub_.publish(PVA_Ref_msg);
 }
   
 
@@ -213,18 +189,27 @@ void waypointControl::wptCallback(const geometry_msgs::PoseStamped::ConstPtr &ms
 void waypointControl::wptListCallback(const nav_msgs::Path::ConstPtr &msg)
 {
   //int nn= ;//length of pose list
+  numPathsSoFar++;
   if(msg) {
     wptListLen=msg->poses.size();
     global_msg = msg;
     waypointCounter=0;
     counter++; //totla number of waypoint list/paths received
+
     errIntegral(0)=0.0;
     errIntegral(1)=0.0;
     errIntegral(2)=0.0;
-    next_wpt(0)=global_msg->poses[0].pose.position.x;
-    next_wpt(1)=global_msg->poses[0].pose.position.y;
-    next_wpt(2)=global_msg->poses[0].pose.position.z;
+    next_wpt(0) = global_msg->poses[0].pose.position.x;
+    next_wpt(1) = global_msg->poses[0].pose.position.y;
+    next_wpt(2) = global_msg->poses[0].pose.position.z;
+    double dt_x = (next_wpt(0)-poseCurr(0))/vmax(0);
+    double dt_y = (next_wpt(1)-poseCurr(1))/vmax(1);
+    double dt_z = (next_wpt(2)-poseCurr(2))/vmax(2);
+    stepsToNextWpt = ceil(std::max(dt_x,std::max(dt_y,dt_z)) / dt_default);
     ROS_INFO("Moving to waypoint %f %f %f",next_wpt(0),next_wpt(1),next_wpt(2));
+  }else
+  {
+    next_wpt=poseCurr;
   }
 }
 
@@ -286,6 +271,9 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
     if(waypointCounter<wptListLen-1)
     {
       waypointCounter++;
+      dtNextWpt=(global_msg->poses[waypointCounter].header.stamp).toSec() - (global_msg->poses[waypointCounter-1].header.stamp).toSec();      
+      stepsToNextWpt=ceil(dtNextWpt/dt_default);
+      stepCounter=0;
       next_wpt(0)=global_msg->poses[waypointCounter].pose.position.x+arenaCenter(0);
       next_wpt(1)=global_msg->poses[waypointCounter].pose.position.y+arenaCenter(1);
       next_wpt(2)=global_msg->poses[waypointCounter].pose.position.z+arenaCenter(2);
