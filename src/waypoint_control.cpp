@@ -14,6 +14,8 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
   ros::param::get("waypoint_control_node/quadWptTopic", quadWptTopic);
   ros::param::get("waypoint_control_node/quadWptListTopic", quadWptListTopic);
   ros::param::get("waypoint_control_node/publishPVA_Topic", publishtopicname);
+  ros::param::get("waypoint_control_node/quadVelListTopic", quadVelListTopic);
+  ros::param::get("waypoint_control_node/quadAccListTopic", quadAccListTopic);
 
   //confirm that parameters were read correctly
   ROS_INFO("Preparing pose subscriber on channel %s",quadPoseTopic.c_str());
@@ -60,6 +62,9 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
   }
   next_vel(0)=0; next_vel(1)=0; next_vel(2)=0;
   next_acc(0)=0; next_acc(1)=0; next_acc(2)=0;
+  old_acc(0)=0; old_acc(1)=0; old_acc(2)=0;
+  old_vel(0)=0; old_vel(1)=0; old_vel(2)=0;
+  old_pose(0)=0; old_pose(1)=0; old_pose(2)=0;
 
   dt_default=1.0/gpsfps;
 
@@ -83,7 +88,6 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
 //  next_wpt(1)=initPose_->pose.pose.position.y;
 //  next_wpt(2)=initPose_->pose.pose.position.z+1; //1m above initial pose
 }
-
 
 
 void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
@@ -124,7 +128,7 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
   //uses the PVA message from px4_control package
   px4_control::PVA PVA_Ref_msg;
-  PVA_Ref_msg.yaw=0.0;
+  PVA_Ref_msg.yaw=0.0;  //can try nonzero if optimal
 
 //  //Move to next point with PID
 //  PVA_Ref_msg.Pos.x=poseCurr(0)+dt_default*velCurr(0)+dt_default*dt_default*0.5*uPID(0);
@@ -137,37 +141,72 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 //  PVA_Ref_msg.Acc.y=uPID(1);
 //  PVA_Ref_msg.Acc.z=uPID(2);
 
-  //Move to next wpt in one step
-  PVA_Ref_msg.Pos.x=next_wpt(0);
-  PVA_Ref_msg.Pos.y=next_wpt(1);
-  PVA_Ref_msg.Pos.z=next_wpt(2);
-  PVA_Ref_msg.Vel.x=0;
-  PVA_Ref_msg.Vel.y=0;
-  PVA_Ref_msg.Vel.z=0;
-  PVA_Ref_msg.Acc.x=0;
-  PVA_Ref_msg.Acc.y=0;
-  PVA_Ref_msg.Acc.z=0;
+//  //Move to next wpt in one step
+//  PVA_Ref_msg.Pos.x=next_wpt(0);
+//  PVA_Ref_msg.Pos.y=next_wpt(1);
+//  PVA_Ref_msg.Pos.z=next_wpt(2);
+//  PVA_Ref_msg.Vel.x=0;
+//  PVA_Ref_msg.Vel.y=0;
+//  PVA_Ref_msg.Vel.z=0;
+//  PVA_Ref_msg.Acc.x=0;
+//  PVA_Ref_msg.Acc.y=0;
+//  PVA_Ref_msg.Acc.z=0;
 
   //Move to next wpt in multiple substeps
-  double substep=stepCounter/stepsToNextWpt;
+  stepCounter++;
+  double substep=stepCounter*(1.0/stepsToNextWpt);
+  //Extend stepsToNextWpt if infeasible
+
+  //fill message fields
+  PVA_Ref_msg.Pos.x=next_wpt(0)-substep*(next_wpt(0)-old_pose(0));
+  PVA_Ref_msg.Pos.y=next_wpt(1)-substep*(next_wpt(1)-old_pose(1));
+  PVA_Ref_msg.Pos.z=next_wpt(2)-substep*(next_wpt(2)-old_pose(2));
+  PVA_Ref_msg.Vel.x=next_vel(0)-substep*(next_vel(0)-old_vel(0));
+  PVA_Ref_msg.Vel.y=next_vel(1)-substep*(next_vel(1)-old_vel(1));
+  PVA_Ref_msg.Vel.z=next_vel(2)-substep*(next_vel(2)-old_vel(2));
+  PVA_Ref_msg.Acc.x=next_acc(0)-substep*(next_acc(0)-old_acc(0));
+  PVA_Ref_msg.Acc.y=next_acc(1)-substep*(next_acc(1)-old_acc(1));
+  PVA_Ref_msg.Acc.z=next_acc(2)-substep*(next_acc(2)-old_acc(2));
 
   pvaRef_pub_.publish(PVA_Ref_msg);
 }
 
 
-void waypointControl::wptVelListCallback(const nav_msgs::Path::ConstPtr &msg)
-{  //If we're publishing the list of velocities as a Path message as well, it'll go here
-  static int velcounter=0;
-  velcounter++;
-}
-
-
-void waypointControl::wptAccListCallback(const nav_msgs::Path::ConstPtr &msg)
+void waypointControl::wptListCallback(const app_pathplanner_interface::PVATrajectoryStamped::ConstPtr &msg)
 {
-  static int acccounter=0;
-  acccounter++;
+  //int nn= ;//length of pose list
+  numPathsSoFar++;
+  if(msg) {
+    wptListLen=msg->pva.size();
+    global_path_msg = msg;
+
+    //initialize waypoint counter
+    waypointCounter=0;
+    counter++; //total number of waypoint list/paths received
+
+    errIntegral(0)=0.0;
+    errIntegral(1)=0.0;
+    errIntegral(2)=0.0;
+    next_wpt(0) = global_path_msg->pva[0].pos.position.x;
+    next_wpt(1) = global_path_msg->pva[0].pos.position.y;
+    next_wpt(2) = global_path_msg->pva[0].pos.position.z;
+    next_vel(0) = global_path_msg->pva[0].vel.linear.x;
+    next_vel(1) = global_path_msg->pva[0].vel.linear.y;
+    next_vel(2) = global_path_msg->pva[0].vel.linear.z;
+    next_acc(0) = global_path_msg->pva[0].acc.linear.x;
+    next_acc(1) = global_path_msg->pva[0].acc.linear.y;
+    next_acc(2) = global_path_msg->pva[0].acc.linear.z;
+    double dt_x = (next_wpt(0)-poseCurr(0))/vmax(0);
+    double dt_y = (next_wpt(1)-poseCurr(1))/vmax(1);
+    double dt_z = (next_wpt(2)-poseCurr(2))/vmax(2);
+    stepsToNextWpt = ceil(std::max(dt_x,std::max(dt_y,dt_z)) / dt_default);
+    ROS_INFO("Moving to waypoint %f %f %f",next_wpt(0),next_wpt(1),next_wpt(2));
+  }else
+  {
+    next_wpt=poseCurr;
+  }
 }
-  
+
 
 void waypointControl::wptCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {
@@ -182,34 +221,6 @@ void waypointControl::wptCallback(const geometry_msgs::PoseStamped::ConstPtr &ms
     errIntegral(0)=0.0;
     errIntegral(1)=0.0;
     errIntegral(2)=0.0;
-  }
-}
-
-
-void waypointControl::wptListCallback(const nav_msgs::Path::ConstPtr &msg)
-{
-  //int nn= ;//length of pose list
-  numPathsSoFar++;
-  if(msg) {
-    wptListLen=msg->poses.size();
-    global_msg = msg;
-    waypointCounter=0;
-    counter++; //totla number of waypoint list/paths received
-
-    errIntegral(0)=0.0;
-    errIntegral(1)=0.0;
-    errIntegral(2)=0.0;
-    next_wpt(0) = global_msg->poses[0].pose.position.x;
-    next_wpt(1) = global_msg->poses[0].pose.position.y;
-    next_wpt(2) = global_msg->poses[0].pose.position.z;
-    double dt_x = (next_wpt(0)-poseCurr(0))/vmax(0);
-    double dt_y = (next_wpt(1)-poseCurr(1))/vmax(1);
-    double dt_z = (next_wpt(2)-poseCurr(2))/vmax(2);
-    stepsToNextWpt = ceil(std::max(dt_x,std::max(dt_y,dt_z)) / dt_default);
-    ROS_INFO("Moving to waypoint %f %f %f",next_wpt(0),next_wpt(1),next_wpt(2));
-  }else
-  {
-    next_wpt=poseCurr;
   }
 }
 
@@ -258,10 +269,10 @@ void waypointControl::limitAcceleration(const Eigen::Vector3d &vv, Eigen::Vector
 void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
 {
   Eigen::Vector3d thisWpt;
-  if(!global_msg) return;
-  thisWpt(0)=global_msg->poses[waypointCounter].pose.position.x+arenaCenter(0);
-  thisWpt(1)=global_msg->poses[waypointCounter].pose.position.y+arenaCenter(1);
-  thisWpt(2)=global_msg->poses[waypointCounter].pose.position.z+arenaCenter(2);
+  if(!global_path_msg) return;
+  thisWpt(0)=global_path_msg->pva[waypointCounter].pos.position.x+arenaCenter(0);
+  thisWpt(1)=global_path_msg->pva[waypointCounter].pos.position.y+arenaCenter(1);
+  thisWpt(2)=global_path_msg->pva[waypointCounter].pos.position.z+arenaCenter(2);
 
   double thisDist=sqrt(pow(thisWpt(0)-cPose(0),2) + pow(thisWpt(1)-cPose(1),2) + pow(thisWpt(2)-cPose(2),2));
 //  ROS_INFO("distcurr = %f",thisDist-hitDist);
@@ -271,12 +282,36 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
     if(waypointCounter<wptListLen-1)
     {
       waypointCounter++;
-      dtNextWpt=(global_msg->poses[waypointCounter].header.stamp).toSec() - (global_msg->poses[waypointCounter-1].header.stamp).toSec();      
+      //update new and old wpt locations
+      old_pose=next_wpt;
+      next_wpt(0)=global_path_msg->pva[waypointCounter].pos.position.x+arenaCenter(0);
+      next_wpt(1)=global_path_msg->pva[waypointCounter].pos.position.y+arenaCenter(1);
+      next_wpt(2)=global_path_msg->pva[waypointCounter].pos.position.z+arenaCenter(2);
+
+      old_vel=next_vel;
+      next_vel(0)=global_path_msg->pva[waypointCounter].vel.linear.x;
+      next_vel(1)=global_path_msg->pva[waypointCounter].vel.linear.y;
+      next_vel(2)=global_path_msg->pva[waypointCounter].vel.linear.z;
+
+      old_acc=next_acc;
+      next_acc(0)=global_path_msg->pva[waypointCounter].acc.linear.x;
+      next_acc(1)=global_path_msg->pva[waypointCounter].acc.linear.y;
+      next_acc(2)=global_path_msg->pva[waypointCounter].acc.linear.z;
+
+      //if you have the next time, find segment chunks that correspond to it. Otherwise, guesstimate.
+      if(global_path_msg->pva[waypointCounter].header.stamp.toSec() > 1e-4 )
+      {
+        dtNextWpt=(global_path_msg->pva[waypointCounter].header.stamp).toSec() -
+                   (global_path_msg->pva[waypointCounter-1].header.stamp).toSec();      
+      }else
+      {
+        double dt_x = (next_wpt(0)-cPose(0))/vmax(0);
+        double dt_y = (next_wpt(1)-cPose(1))/vmax(1);
+        double dt_z = (next_wpt(2)-cPose(2))/vmax(2);
+        dtNextWpt=std::max(std::max(dt_x,dt_y),dt_z);
+      }
       stepsToNextWpt=ceil(dtNextWpt/dt_default);
       stepCounter=0;
-      next_wpt(0)=global_msg->poses[waypointCounter].pose.position.x+arenaCenter(0);
-      next_wpt(1)=global_msg->poses[waypointCounter].pose.position.y+arenaCenter(1);
-      next_wpt(2)=global_msg->poses[waypointCounter].pose.position.z+arenaCenter(2);
       errIntegral(0)=0.0;
       errIntegral(1)=0.0;
       errIntegral(2)=0.0;
@@ -285,9 +320,7 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
     {
       ROS_INFO("Final waypoint reached, holding station.");
     }
-
   }
-
 }
 
 }//end namespace
