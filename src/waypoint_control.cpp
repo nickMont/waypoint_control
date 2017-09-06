@@ -26,7 +26,7 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
   wptTime=0.0;
   stepCounter=0;
 
-  //read inputs from file
+  //read PID params from file
   ros::param::get("waypoint_control_node/kpX",kp(0));
   ros::param::get("waypoint_control_node/kdX",kd(0));
   ros::param::get("waypoint_control_node/kiX",ki(0));
@@ -39,6 +39,8 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
   ros::param::get("waypoint_control_node/maxInteg_X",eImax(0));
   ros::param::get("waypoint_control_node/maxInteg_Y",eImax(1));
   ros::param::get("waypoint_control_node/maxInteg_Z",eImax(2));
+
+  //read in safety params. Only currently in use to make intermediate points when initalizing
   ros::param::get("waypoint_control_node/vx_max",vmax(0));
   ros::param::get("waypoint_control_node/vy_max",vmax(1));
   ros::param::get("waypoint_control_node/vz_max",vmax(2));
@@ -151,11 +153,18 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 //  PVA_Ref_msg.Acc.z=0;
 
   //Move to next wpt in multiple substeps
+  //Check to see if the window needs to increase in size
+  double dt_x = (next_wpt(0)-poseCurr(0))/vmax(0);
+  double dt_y = (next_wpt(1)-poseCurr(1))/vmax(1);
+  double dt_z = (next_wpt(2)-poseCurr(2))/vmax(2);
+  double estStepsMaxVel = ceil(std::max(dt_x,std::max(dt_y,dt_z)) / dt_default);
+  if(estStepsMaxVel>stepsToNextWpt-stepCounter) stepsToNextWpt++;
+  //get substep size
   stepCounter++;
   double substep=1-stepCounter*(1.0/stepsToNextWpt);
-  //Extend stepsToNextWpt if infeasible
 
   //fill message fields
+  //The proper way to do this is with discrete integration but handling it with substeps is close enough
   PVA_Ref_msg.Pos.x=next_wpt(0)-substep*(next_wpt(0)-old_pose(0));
   PVA_Ref_msg.Pos.y=next_wpt(1)-substep*(next_wpt(1)-old_pose(1));
   PVA_Ref_msg.Pos.z=next_wpt(2)-substep*(next_wpt(2)-old_pose(2));
@@ -170,7 +179,7 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 }
 
 
-void waypointControl::wptListCallback(const app_pathplanner_interface::PVATrajectoryStamped::ConstPtr &msg)
+void waypointControl::wptListCallback(const app_pathplanner_interface::PVATrajectory::ConstPtr &msg)
 {
   //int nn= ;//length of pose list
   numPathsSoFar++;
@@ -218,6 +227,7 @@ void waypointControl::wptListCallback(const app_pathplanner_interface::PVATrajec
 }
 
 
+//if a single wpt is received
 void waypointControl::wptCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {
   double tempTime=(msg->header.stamp).toSec();
@@ -228,6 +238,11 @@ void waypointControl::wptCallback(const geometry_msgs::PoseStamped::ConstPtr &ms
     next_wpt(0)=msg->pose.position.x+arenaCenter(0);
     next_wpt(1)=msg->pose.position.y+arenaCenter(1);
     next_wpt(2)=msg->pose.position.z+arenaCenter(2);
+    next_vel.setZero();
+    next_acc.setZero();
+    old_pose=poseCurr;
+    old_vel=velCurr;
+    old_acc.setZero();
     errIntegral(0)=0.0;
     errIntegral(1)=0.0;
     errIntegral(2)=0.0;
@@ -237,7 +252,7 @@ void waypointControl::wptCallback(const geometry_msgs::PoseStamped::ConstPtr &ms
 
 double waypointControl::saturationF(double& xval, const double satbound)
 {
-  if(xval>satbound){
+  if(xval>satbound){    
     xval=satbound;
   }else if(xval<-satbound){
     xval=-satbound;
@@ -333,18 +348,10 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
       ROS_INFO("Final waypoint reached, holding station.");
 
       //Set old VA to 0 to hold station
-      next_vel(0)=0;
-      next_vel(1)=0;
-      next_vel(2)=0;
-      next_acc(0)=0;
-      next_acc(1)=0;
-      next_acc(2)=0;
-      old_vel(0)=0;
-      old_vel(1)=0;
-      old_vel(2)=0;
-      old_acc(0)=0;
-      old_acc(1)=0;
-      old_acc(2)=0;
+      next_vel.setZero();
+      next_acc.setZero();
+      old_vel.setZero();
+      old_acc.setZero();
     }
   }
 }
