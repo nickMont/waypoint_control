@@ -9,7 +9,7 @@
 #include <string>
 #include <iostream>
 #include <px4_control/PVA.h>
-#include <app_pathplanner_interface/PVATrajectoryStamped.h>
+#include <app_pathplanner_interface/PVATrajectory.h>
 #include <app_pathplanner_interface/PVA_Stamped.h>
 
 namespace waypoint_control
@@ -21,7 +21,7 @@ public:
 
 	void poseCallback(const nav_msgs::Odometry::ConstPtr &msg);
 	void wptCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
-	void wptListCallback(const app_pathplanner_interface::PVATrajectoryStamped::ConstPtr &msg);
+	void wptListCallback(const app_pathplanner_interface::PVATrajectory::ConstPtr &msg);
 //	void wptListCallback(const nav_msgs::Path::ConstPtr &msg);
 	double saturationF(double& xval, const double satbound);
 	void checkArrival(const Eigen::Vector3d &cPose);
@@ -40,7 +40,7 @@ public:
 							amax, arenaCenter, next_wpt, next_vel, next_acc, uPID, poseCurr, velCurr, old_acc;
 	std::string quadPoseTopic, quadName, quadWptTopic, publishtopicname, quadWptListTopic,
 							quadVelListTopic, quadAccListTopic;
-	app_pathplanner_interface::PVATrajectoryStamped::ConstPtr global_path_msg;
+	app_pathplanner_interface::PVATrajectory::ConstPtr global_path_msg;
 };
 }
 
