@@ -108,21 +108,21 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
   checkArrival(poseCurr);
 
-  errIntegral(0)=dt_default*(next_wpt(0)-poseCurr(0));
-  errIntegral(1)=dt_default*(next_wpt(1)-poseCurr(1));
-  errIntegral(2)=dt_default*(next_wpt(2)-poseCurr(2));
+//  errIntegral(0)=dt_default*(next_wpt(0)-poseCurr(0));
+//  errIntegral(1)=dt_default*(next_wpt(1)-poseCurr(1));
+//  errIntegral(2)=dt_default*(next_wpt(2)-poseCurr(2));
 
-  //Integrator saturation
-  saturationF(errIntegral(0),eImax(0));
-  saturationF(errIntegral(1),eImax(1));
-  saturationF(errIntegral(2),eImax(2));
+//  //Integrator saturation
+//  saturationF(errIntegral(0),eImax(0));
+//  saturationF(errIntegral(1),eImax(1));
+//  saturationF(errIntegral(2),eImax(2));
 
-  //create PID command
-  uPID(0)=kp(0)*(next_wpt(0)-poseCurr(0)) + kd(0)*(0-velCurr(0)) + ki(0)*errIntegral(0);
-  uPID(1)=kp(1)*(next_wpt(1)-poseCurr(1)) + kd(1)*(0-velCurr(1)) + ki(1)*errIntegral(1);
-  uPID(2)=kp(2)*(next_wpt(2)-poseCurr(2)) + kd(2)*(0-velCurr(2)) + ki(2)*errIntegral(2);
+//  //create PID command
+//  uPID(0)=kp(0)*(next_wpt(0)-poseCurr(0)) + kd(0)*(0-velCurr(0)) + ki(0)*errIntegral(0);
+//  uPID(1)=kp(1)*(next_wpt(1)-poseCurr(1)) + kd(1)*(0-velCurr(1)) + ki(1)*errIntegral(1);
+//  uPID(2)=kp(2)*(next_wpt(2)-poseCurr(2)) + kd(2)*(0-velCurr(2)) + ki(2)*errIntegral(2);
 
-  limitAcceleration(velCurr,uPID);
+//  limitAcceleration(velCurr,uPID);
 
   //uses the PVA message from px4_control package
   px4_control::PVA PVA_Ref_msg;
@@ -152,7 +152,7 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
   //Move to next wpt in multiple substeps
   stepCounter++;
-  double substep=stepCounter*(1.0/stepsToNextWpt);
+  double substep=1-stepCounter*(1.0/stepsToNextWpt);
   //Extend stepsToNextWpt if infeasible
 
   //fill message fields
@@ -182,9 +182,19 @@ void waypointControl::wptListCallback(const app_pathplanner_interface::PVATrajec
     waypointCounter=0;
     counter++; //total number of waypoint list/paths received
 
+    //set old states to 0
+    old_pose=poseCurr;
+    old_vel=velCurr;
+    old_acc(0)=0;
+    old_acc(1)=0;
+    old_acc(2)=0;
+
+    //reset PID params
     errIntegral(0)=0.0;
     errIntegral(1)=0.0;
     errIntegral(2)=0.0;
+
+    //get next waypoint PVA from list
     next_wpt(0) = global_path_msg->pva[0].pos.position.x;
     next_wpt(1) = global_path_msg->pva[0].pos.position.y;
     next_wpt(2) = global_path_msg->pva[0].pos.position.z;
@@ -194,6 +204,8 @@ void waypointControl::wptListCallback(const app_pathplanner_interface::PVATrajec
     next_acc(0) = global_path_msg->pva[0].acc.linear.x;
     next_acc(1) = global_path_msg->pva[0].acc.linear.y;
     next_acc(2) = global_path_msg->pva[0].acc.linear.z;
+
+    //estimated steps to next wpt
     double dt_x = (next_wpt(0)-poseCurr(0))/vmax(0);
     double dt_y = (next_wpt(1)-poseCurr(1))/vmax(1);
     double dt_z = (next_wpt(2)-poseCurr(2))/vmax(2);
@@ -232,6 +244,7 @@ double waypointControl::saturationF(double& xval, const double satbound)
   }
 }
 
+
 void waypointControl::limitAcceleration(const Eigen::Vector3d &vv, Eigen::Vector3d &uu)
 {
   Eigen::Vector3d velWithAccel;
@@ -263,6 +276,7 @@ void waypointControl::limitAcceleration(const Eigen::Vector3d &vv, Eigen::Vector
     } //else //all good
   }
 }
+
 
 void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
 {
@@ -317,6 +331,20 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
     }else
     {
       ROS_INFO("Final waypoint reached, holding station.");
+
+      //Set old VA to 0 to hold station
+      next_vel(0)=0;
+      next_vel(1)=0;
+      next_vel(2)=0;
+      next_acc(0)=0;
+      next_acc(1)=0;
+      next_acc(2)=0;
+      old_vel(0)=0;
+      old_vel(1)=0;
+      old_vel(2)=0;
+      old_acc(0)=0;
+      old_acc(1)=0;
+      old_acc(2)=0;
     }
   }
 }

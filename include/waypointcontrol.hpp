@@ -41,7 +41,6 @@ class waypointControl
               amax, arenaCenter, next_wpt, next_vel, next_acc, uPID, poseCurr, velCurr, old_acc;
   std::string quadPoseTopic, quadName, quadWptTopic, publishtopicname, quadWptListTopic,
               quadVelListTopic, quadAccListTopic;
-  nav_msgs::Path::ConstPtr global_msg, global_msg_vel, global_msg_acc;
   app_pathplanner_interface::PVATrajectoryStamped::ConstPtr global_path_msg;
 };
 
