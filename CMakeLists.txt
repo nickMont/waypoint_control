@@ -1,49 +1,48 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(waypoint_control)
 
-## Add support for C++11, supported in ROS Kinetic and newer
-# add_definitions(-std=c++11)
-
+set(CMAKE_CXX_FLAGS "-std=c++14 ${CMAKE_CXX_FLAGS} -Wno-format-security -Wno-literal-suffix -DCATKIN_BUILD")
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  geometry_msgs
-  mavros_msgs
-  nav_msgs
-  roscpp
-  std_msgs
-  message_generation
-  cmake_modules
-  app_pathplanner_interface
+	geometry_msgs
+	mavros_msgs
+	nav_msgs
+	roscpp
+	std_msgs
+	message_generation
+	cmake_modules
+	app_pathplanner_interface
 )
-
-add_message_files(DIRECTORY msg FILES
-   PVA.msg
- )
 
 find_package(Eigen REQUIRED)
 
+# Add custom message files
+add_message_files(DIRECTORY msg FILES
+	 PVA.msg
+ )
+
+# Generate the message cpp files
 generate_messages( DEPENDENCIES
-  std_msgs
-  geometry_msgs
-  nav_msgs
+	std_msgs
+	geometry_msgs
+	nav_msgs
 )
 
 catkin_package(
 	DEPENDS Eigen
-  INCLUDE_DIRS include
-  LIBRARIES waypointControl
-  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp std_msgs visualization_msgs app_pathplanner_interface
-  DEPENDS system_lib
+	INCLUDE_DIRS include
+	LIBRARIES waypointControl
+	CATKIN_DEPENDS geometry_msgs nav_msgs roscpp std_msgs visualization_msgs app_pathplanner_interface
+	DEPENDS system_lib
 )
 
-
 include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
-  ${Eigen_INCLUDE_DIRS}
+	include
+	${catkin_INCLUDE_DIRS}
+	${Eigen_INCLUDE_DIRS}
 )
 
 add_executable(waypoint_control src/waypoint_control.cpp)

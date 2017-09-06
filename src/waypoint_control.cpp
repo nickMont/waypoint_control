@@ -2,7 +2,6 @@
 #include "waypointcontrol.hpp"
 #include <Eigen/Geometry>
 #include <string>
-#include <iostream>
 
 namespace waypoint_control
 {
@@ -351,22 +350,4 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
 
 }//end namespace
 
-
-int main(int argc, char **argv)
-{
-  ros::init(argc, argv, "waypoint_Control");
-  ros::NodeHandle nh;
-
-  try
-  {
-    waypoint_control::waypointControl waypoint_control(nh);
-    ros::spin();
-  }
-  catch(const std::exception &e)
-  {
-    ROS_ERROR("%s: %s", nh.getNamespace().c_str(), e.what());
-    return 1;
-  }
-  return 0;
-}
 
