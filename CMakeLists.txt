@@ -45,7 +45,10 @@ include_directories(
 	${Eigen_INCLUDE_DIRS}
 )
 
-add_executable(waypoint_control src/waypoint_control.cpp)
+# Glob all of the source files together
+file(GLOB_RECURSE SRC_FILES src/ *.cpp)
+
+add_executable(waypoint_control ${SRC_FILES})
 
 target_link_libraries(waypoint_control ${catkin_LIBRARIES})
 
