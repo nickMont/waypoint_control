@@ -14,8 +14,6 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
   ros::param::get("waypoint_control_node/quadWptTopic", quadWptTopic);
   ros::param::get("waypoint_control_node/quadWptListTopic", quadWptListTopic);
   ros::param::get("waypoint_control_node/publishPVA_Topic", publishtopicname);
-  ros::param::get("waypoint_control_node/quadVelListTopic", quadVelListTopic);
-  ros::param::get("waypoint_control_node/quadAccListTopic", quadAccListTopic);
 
   //confirm that parameters were read correctly
   ROS_INFO("Preparing pose subscriber on channel %s",quadPoseTopic.c_str());
