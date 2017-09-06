@@ -1,3 +1,8 @@
+
+
+// These are pieces and chunks of code that are currently unused but could be used in the future.
+
+/*
 void waypointControl::wptListCallback(const nav_msgs::Path::ConstPtr &msg)
 {
   //int nn= ;//length of pose list
@@ -16,7 +21,7 @@ void waypointControl::wptListCallback(const nav_msgs::Path::ConstPtr &msg)
     next_wpt(0) = global_path_msg->pva[0].pos.position.x;
     next_wpt(1) = global_path_msg->pva[0].pos.position.y;
     next_wpt(2) = global_path_msg->pva[0].pos.position.z;
-    next_vel(0) = global_path_msg->pva[0].vel.linear.x;
+    next_vel(0) = global_path_msg->pva[0].vel.li These are pieces and chunks of |near.x;
     next_vel(1) = global_path_msg->pva[0].vel.linear.y;
     next_vel(2) = global_path_msg->pva[0].vel.linear.z;
     next_acc(0) = global_path_msg->pva[0].acc.linear.x;
@@ -32,6 +37,6 @@ void waypointControl::wptListCallback(const nav_msgs::Path::ConstPtr &msg)
     next_wpt=poseCurr;
   }
 }
-
+*/
 
 
