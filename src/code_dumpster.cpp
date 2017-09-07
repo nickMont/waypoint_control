@@ -1,6 +1,6 @@
 
 
-// These are pieces and chunks of code that are currently unused but could be used in the future.
+// These are pieces and chunks of code that are currently unused but may be reused
 
 /*
 void waypointControl::wptListCallback(const nav_msgs::Path::ConstPtr &msg)
@@ -37,6 +37,30 @@ void waypointControl::wptListCallback(const nav_msgs::Path::ConstPtr &msg)
     next_wpt=poseCurr;
   }
 }
+
+
+
+
+    //testing reference outputs
+    int k=global_path_msg->pva.size();
+    for(int i=1; i<k; i++)
+    {
+      Eigen::Vector3d vold, vnew;
+      vold=Eigen::Vector3d(
+        global_path_msg->pva[i-1].pos.position.x,
+          global_path_msg->pva[i-1].pos.position.y,
+          global_path_msg->pva[i-1].pos.position.z);
+      vnew=Eigen::Vector3d(
+        global_path_msg->pva[i].pos.position.x,
+          global_path_msg->pva[i].pos.position.y,
+          global_path_msg->pva[i].pos.position.z);
+      ROS_INFO("dtt2=%f   dh=%f" , (global_path_msg->pva[i].header.stamp).toSec() -
+                   (global_path_msg->pva[i-1].header.stamp).toSec(),
+                   (vnew-vold).norm());
+    }
+
+
+
 */
 
 

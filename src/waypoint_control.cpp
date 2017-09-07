@@ -152,21 +152,13 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
 	//Move to next waypoint in multiple substeps
 	//Check to see if the window needs to increase in size
-
-    /* BEGIN CHECK THIS */
-	// double dt_x = (nextWaypoint_(0)-currentPose_(0))/vmax(0);
-	// double dt_y = (nextWaypoint_(1)-currentPose_(1))/vmax(1);
-	// double dt_z = (nextWaypoint_(2)-currentPose_(2))/vmax(2);
-	// double estStepsMaxVel = ceil(std::max( {dt_x, dt_y, dt_z} ) / dt_default);
-
     Eigen::Vector3d dt = (nextWaypoint_ - currentPose_).cwiseQuotient(vmax);
 	double estStepsMaxVel = std::ceil(dt.lpNorm<Eigen::Infinity>() / dt_default);
-    /* END CHECK THIS */
 
 
 	if(estStepsMaxVel > stepsToNextWaypoint - stepCounter) 
     {
-        stepsToNextWaypoint++;
+        stepCounter--;
     }
 
 	//get substep size
@@ -175,18 +167,6 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
 	//fill message fields
 	//The proper way to do this is with discrete integration but handling it with substeps is close enough
-	
-    /* BEGIN CHECK THIS */
-    // PVA_Ref_msg.Pos.x=next_wpt(0)-substep*(next_wpt(0)-old_pose(0));
-    // PVA_Ref_msg.Pos.y=next_wpt(1)-substep*(next_wpt(1)-old_pose(1));
-    // PVAPVA_Ref_msg.Pos.z=next_wpt(2)-substep*(next_wpt(2)-old_pose(2));
-    // PVAPVA_Ref_msg.Vel.x=next_vel(0)-substep*(next_vel(0)-old_vel(0));
-    // PVAPVA_Ref_msg.Vel.y=next_vel(1)-substep*(next_vel(1)-old_vel(1));
-    // PVAPVA_Ref_msg.Vel.z=next_vel(2)-substep*(next_vel(2)-old_vel(2));
-    // PVAPVA_Ref_msg.Acc.x=next_acc(0)-substep*(next_acc(0)-old_acc(0));
-    // PVAPVA_Ref_msg.Acc.y=next_acc(1)-substep*(next_acc(1)-old_acc(1));
-    // PVAPVA_Ref_msg.Acc.z=next_acc(2)-substep*(next_acc(2)-old_acc(2));
-
     Eigen::Vector3d tmp;
 
     tmp = nextWaypoint_ - substep * (nextWaypoint_ - oldPose_);
@@ -203,7 +183,6 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	PVA_Ref_msg.Acc.x = tmp(0);
 	PVA_Ref_msg.Acc.y = tmp(1);
 	PVA_Ref_msg.Acc.z = tmp(2);
-    /* END CHECK THIS */
 
 	pvaRef_pub_.publish(PVA_Ref_msg);
 }
@@ -249,16 +228,11 @@ void waypointControl::waypointListCallback(const app_pathplanner_interface::PVAT
         );
 
 		//estimated steps to next waypoint
-        /* BEGIN CHECK THIS */
-		// double dt_x = (nextWaypoint_(0)-currentPose_(0))/vmax(0);
-		// double dt_y = (nextWaypoint_(1)-currentPose_(1))/vmax(1);
-		// double dt_z = (nextWaypoint_(2)-currentPose_(2))/vmax(2);
-		// stepsToNextWaypoint = ceil(std::max(dt_x,std::max(dt_y,dt_z)) / dt_default);
-
         Eigen::Vector3d dt = (nextWaypoint_ - currentPose_).cwiseQuotient(vmax);
 		stepsToNextWaypoint = ceil(dt.lpNorm<Eigen::Infinity>() / dt_default);
-        /* END CHECK THIS */
+//		ROS_INFO("dtx %f  dty %f  dtz %f  problemelement %f",dt(0),dt(1),dt(2),nextWaypoint_(2)-currentPose_(2));
 
+		//print update to user
 		ROS_INFO("Moving to waypoint %f %f %f", nextWaypoint_(0), nextWaypoint_(1), nextWaypoint_(2));
 	}
     else
@@ -390,18 +364,13 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
 			if(global_path_msg->pva[waypointCounter].header.stamp.toSec() > 1e-4 )
 			{
 				dtNextWaypoint=(global_path_msg->pva[waypointCounter].header.stamp).toSec() -
-									 (global_path_msg->pva[waypointCounter-1].header.stamp).toSec();			
+									 (global_path_msg->pva[waypointCounter-1].header.stamp).toSec()
+									 -0.001;  //subtracting 0.001 to handle roundoff in minimum snap node			
 			}
             else
 			{
-                /* BEGIN CHECK THIS */
-				// double dt_x = (nextWaypoint_(0)-cPose(0))/vmax(0);
-				// double dt_y = (nextWaypoint_(1)-cPose(1))/vmax(1);
-				// double dt_z = (nextWaypoint_(2)-cPose(2))/vmax(2);
-				// dtNextWaypoint=std::max( {dt_x, dt_y, dt_z} );
-
+				//guesstimate timing
                 this->dtNextWaypoint =  ((nextWaypoint_ - cPose).cwiseQuotient(vmax)).lpNorm<Eigen::Infinity>();
-                /* END CHECK THIS */
 			}
 			stepsToNextWaypoint = ceil(dtNextWaypoint/dt_default);
 			stepCounter = 0;
