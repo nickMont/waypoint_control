@@ -79,10 +79,10 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
 														this, ros::TransportHints().tcpNoDelay());
 	ROS_INFO("Subscribers successfully created.");
 
-	//get initial pose
-	ROS_INFO("Waiting for first position measurement...");
-	initPose_ = ros::topic::waitForMessage<nav_msgs::Odometry>(quadPoseTopic);
-	ROS_INFO("Initial position: %f\t%f\t%f", initPose_->pose.pose.position.x, initPose_->pose.pose.position.y, initPose_->pose.pose.position.z);
+//	//get initial pose
+//	ROS_INFO("Waiting for first position measurement...");
+//	initPose_ = ros::topic::waitForMessage<nav_msgs::Odometry>(quadPoseTopic);
+//	ROS_INFO("Initial position: %f\t%f\t%f", initPose_->pose.pose.position.x, initPose_->pose.pose.position.y, initPose_->pose.pose.position.z);
 //	next_wpt(0)=initPose_->pose.pose.position.x;
 //	next_wpt(1)=initPose_->pose.pose.position.y;
 //	next_wpt(2)=initPose_->pose.pose.position.z+1; //1m above initial pose
@@ -164,6 +164,7 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
 	//fill message fields
 	//The proper way to do this is with discrete integration but handling it with substeps is close enough
+  ROS_INFO("substepfract: %f",substep);
 	PVA_Ref_msg.Pos.x=next_wpt(0)-substep*(next_wpt(0)-old_pose(0));
 	PVA_Ref_msg.Pos.y=next_wpt(1)-substep*(next_wpt(1)-old_pose(1));
 	PVA_Ref_msg.Pos.z=next_wpt(2)-substep*(next_wpt(2)-old_pose(2));

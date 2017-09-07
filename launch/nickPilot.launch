@@ -41,7 +41,7 @@
     <param name="quadName" type="string" value="Valkyrie"/>
     <param name="quadPoseTopic" type="string" value="Valkyrie/local_odom"/>
     <param name="quadWptTopic" type="string" value="Valkyrie/refPose"/> <!-- topic for single wpts -->
-    <param name="quadWptListTopic" type="string" value="PosControl/Path/Quad1"/> <!-- topic for lists of wpts -->
+    <param name="quadWptListTopic" type="string" value="PosControl/PVATrajectory/Quad1"/> <!-- topic for lists of wpts -->
     <param name="publishPVA_Topic" type="string" value="px4_control/PVA_Ref"/>
     <param name="gps_fps" value="20"/>
 
