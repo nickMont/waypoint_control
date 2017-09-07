@@ -61,6 +61,61 @@ void waypointControl::wptListCallback(const nav_msgs::Path::ConstPtr &msg)
 
 
 
+
+
+
+
+
+
+    //  //Move to next point with PID
+//  PVA_Ref_msg.Pos.x=currentPose_(0)+dt_default*currentVelocity_(0)+dt_default*dt_default*0.5*uPID(0);
+//  PVA_Ref_msg.Pos.y=currentPose_(1)+dt_default*currentVelocity_(1)+dt_default*dt_default*0.5*uPID(1);
+//  PVA_Ref_msg.Pos.z=currentPose_(2)+dt_default*currentVelocity_(2)+dt_default*dt_default*0.5*uPID(2);
+//  PVA_Ref_msg.Vel.x=currentVelocity_(0)+dt_default*uPID(0);
+//  PVA_Ref_msg.Vel.y=currentVelocity_(1)+dt_default*uPID(1);
+//  PVA_Ref_msg.Vel.z=currentVelocity_(2)+dt_default*uPID(2);
+//  PVA_Ref_msg.Acc.x=uPID(0);
+//  PVA_Ref_msg.Acc.y=uPID(1);
+//  PVA_Ref_msg.Acc.z=uPID(2);
+
+//  //Move to next waypoint in one step
+//  PVA_Ref_msg.Pos.x=nextWaypoint_(0);
+//  PVA_Ref_msg.Pos.y=nextWaypoint_(1);
+//  PVA_Ref_msg.Pos.z=nextWaypoint_(2);
+//  PVA_Ref_msg.Vel.x=0;
+//  PVA_Ref_msg.Vel.y=0;
+//  PVA_Ref_msg.Vel.z=0;
+//  PVA_Ref_msg.Acc.x=0;
+//  PVA_Ref_msg.Acc.y=0;
+//  PVA_Ref_msg.Acc.z=0;
+
+
+
+
+
+
+
+
+
+
+//  errIntegral(0)=dt_default*(nextWaypoint_(0)-currentPose_(0));
+//  errIntegral(1)=dt_default*(nextWaypoint_(1)-currentPose_(1));
+//  errIntegral(2)=dt_default*(nextWaypoint_(2)-currentPose_(2));
+
+//  //Integrator saturation
+//  saturationF(errIntegral(0),eImax(0));
+//  saturationF(errIntegral(1),eImax(1));
+//  saturationF(errIntegral(2),eImax(2));
+
+//  //create PID command
+//  uPID(0)=kp(0)*(nextWaypoint_(0)-currentPose_(0)) + kd(0)*(0-currentVelocity_(0)) + ki(0)*errIntegral(0);
+//  uPID(1)=kp(1)*(nextWaypoint_(1)-currentPose_(1)) + kd(1)*(0-currentVelocity_(1)) + ki(1)*errIntegral(1);
+//  uPID(2)=kp(2)*(nextWaypoint_(2)-currentPose_(2)) + kd(2)*(0-currentVelocity_(2)) + ki(2)*errIntegral(2);
+
+
+
+
+
 */
 
 

@@ -77,11 +77,13 @@ void waypointControl::readROSParameters()
 	ros::param::get("waypoint_control_node/yCenter", arenaCenter(1));
 	ros::param::get("waypoint_control_node/zCenter", arenaCenter(2));
 
+	ros::param::get("waypoint_control_node/vmax_for_timing",vmax_for_timing);
+	ros::param::get("waypoint_control_node/vmax_real",vmax_real);
+
 }
 
 void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 { //Sends PVA_Ref based on current PVA when received
-
 	//Send new PVA when new KFPose received
 	//static ros::Time t_last_proc = msg->header.stamp;
 	//double dt = (msg->header.stamp - t_last_proc).toSec();
@@ -100,71 +102,61 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	    msg->twist.twist.linear.z
     );
 
-//	currentPose_(0)=0; currentPose_(1)=0; currentPose_(2)=0;
-//	currentVelocity_(0)=0; currentVelocity_(1)=0; currentVelocity_(2)=0;
 
-    /* BEGIN CHECK THIS */
-    // What does this function do? 
-	checkArrival(currentPose_);
-    /* END CHECK THIS */
-
-//	errIntegral(0)=dt_default*(nextWaypoint_(0)-currentPose_(0));
-//	errIntegral(1)=dt_default*(nextWaypoint_(1)-currentPose_(1));
-//	errIntegral(2)=dt_default*(nextWaypoint_(2)-currentPose_(2));
-
-//	//Integrator saturation
-//	saturationF(errIntegral(0),eImax(0));
-//	saturationF(errIntegral(1),eImax(1));
-//	saturationF(errIntegral(2),eImax(2));
-
-//	//create PID command
-//	uPID(0)=kp(0)*(nextWaypoint_(0)-currentPose_(0)) + kd(0)*(0-currentVelocity_(0)) + ki(0)*errIntegral(0);
-//	uPID(1)=kp(1)*(nextWaypoint_(1)-currentPose_(1)) + kd(1)*(0-currentVelocity_(1)) + ki(1)*errIntegral(1);
-//	uPID(2)=kp(2)*(nextWaypoint_(2)-currentPose_(2)) + kd(2)*(0-currentVelocity_(2)) + ki(2)*errIntegral(2);
-
-//	limitAcceleration(currentVelocity_,uPID);
-
+    //Prepare for multiple cases
+   	double substep;
 	//uses the PVA message from px4_control package
 	px4_control::PVA PVA_Ref_msg;
 	PVA_Ref_msg.yaw = 0.0;	//can try nonzero if optimal
 
-//	//Move to next point with PID
-//	PVA_Ref_msg.Pos.x=currentPose_(0)+dt_default*currentVelocity_(0)+dt_default*dt_default*0.5*uPID(0);
-//	PVA_Ref_msg.Pos.y=currentPose_(1)+dt_default*currentVelocity_(1)+dt_default*dt_default*0.5*uPID(1);
-//	PVA_Ref_msg.Pos.z=currentPose_(2)+dt_default*currentVelocity_(2)+dt_default*dt_default*0.5*uPID(2);
-//	PVA_Ref_msg.Vel.x=currentVelocity_(0)+dt_default*uPID(0);
-//	PVA_Ref_msg.Vel.y=currentVelocity_(1)+dt_default*uPID(1);
-//	PVA_Ref_msg.Vel.z=currentVelocity_(2)+dt_default*uPID(2);
-//	PVA_Ref_msg.Acc.x=uPID(0);
-//	PVA_Ref_msg.Acc.y=uPID(1);
-//	PVA_Ref_msg.Acc.z=uPID(2);
-
-//	//Move to next waypoint in one step
-//	PVA_Ref_msg.Pos.x=nextWaypoint_(0);
-//	PVA_Ref_msg.Pos.y=nextWaypoint_(1);
-//	PVA_Ref_msg.Pos.z=nextWaypoint_(2);
-//	PVA_Ref_msg.Vel.x=0;
-//	PVA_Ref_msg.Vel.y=0;
-//	PVA_Ref_msg.Vel.z=0;
-//	PVA_Ref_msg.Acc.x=0;
-//	PVA_Ref_msg.Acc.y=0;
-//	PVA_Ref_msg.Acc.z=0;
-
-	//Move to next waypoint in multiple substeps
-	//Check to see if the window needs to increase in size
-    Eigen::Vector3d dt = (nextWaypoint_ - currentPose_).cwiseQuotient(vmax);
-	double estStepsMaxVel = std::ceil(dt.lpNorm<Eigen::Infinity>() / dt_default);
-
-
-	if(estStepsMaxVel > stepsToNextWaypoint - stepCounter) 
+	//if there is a path, follow it.  If not, hover near arena center
+    if(global_path_msg)
     {
-        stepCounter--;
-    }
+		checkArrival(currentPose_);
+//		limitAcceleration(currentVelocity_,uPID);
 
-	//get substep size
-	stepCounter++;
-	double substep=1-stepCounter*(1.0/stepsToNextWaypoint);
+		//Move to next waypoint in multiple substeps
+		//Check to see if the window needs to increase in size
+ 	    Eigen::Vector3d dt = (nextWaypoint_ - currentPose_)/vmax_real;
+		double estStepsMaxVel = std::ceil(dt.lpNorm<Eigen::Infinity>() / dt_default);
 
+		if(estStepsMaxVel > stepsToNextWaypoint - stepCounter) //+1 to account for noise 
+ 	    {
+ 	       stepCounter--;
+	    }
+
+		//get substep size
+		stepCounter++;
+
+		//saturate substep size
+		substep=1-stepCounter*(1.0/stepsToNextWaypoint);
+		double subtemp=substep;
+		if(substep<0)
+		{
+			substep=0;
+		}else if(substep>1)
+		{
+			substep=1;
+		}
+	}else  //if no message has been received
+	{
+		//set next wpt to be stationary at arena center
+		nextWaypoint_=arenaCenter;
+		nextWaypoint_(2)=arenaCenter(2)+1;
+		nextVelocity_.setZero();
+		nextAcceleration_.setZero();
+		oldPose_=currentPose_;
+		oldVelocity_=currentVelocity_;
+		oldAcceleration_.setZero();
+
+// 	    Eigen::Vector3d dt = (nextWaypoint_ - currentPose_).cwiseQuotient(vmax);
+ 	    Eigen::Vector3d dt = (nextWaypoint_ - currentPose_)/vmax_for_timing;
+		double estStepsMaxVel = std::ceil(dt.lpNorm<Eigen::Infinity>() / dt_default);
+		substep=1-1/estStepsMaxVel;
+	}
+
+	ROS_INFO("subcount %f  zdist %f",substep,nextWaypoint_(2)-substep*(nextWaypoint_(2)-oldPose_(2)));
+	
 	//fill message fields
 	//The proper way to do this is with discrete integration but handling it with substeps is close enough
     Eigen::Vector3d tmp;
@@ -184,7 +176,10 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	PVA_Ref_msg.Acc.y = tmp(1);
 	PVA_Ref_msg.Acc.z = tmp(2);
 
+	/*
+	static double zprev=
 	pvaRef_pub_.publish(PVA_Ref_msg);
+	ROS_INFO("dz=%f");*/
 }
 
 
@@ -228,12 +223,13 @@ void waypointControl::waypointListCallback(const app_pathplanner_interface::PVAT
         );
 
 		//estimated steps to next waypoint
-        Eigen::Vector3d dt = (nextWaypoint_ - currentPose_).cwiseQuotient(vmax);
+        Eigen::Vector3d dt = (nextWaypoint_ - currentPose_)/vmax_for_timing;
 		stepsToNextWaypoint = ceil(dt.lpNorm<Eigen::Infinity>() / dt_default);
 //		ROS_INFO("dtx %f  dty %f  dtz %f  problemelement %f",dt(0),dt(1),dt(2),nextWaypoint_(2)-currentPose_(2));
 
 		//print update to user
-		ROS_INFO("Moving to waypoint %f %f %f", nextWaypoint_(0), nextWaypoint_(1), nextWaypoint_(2));
+		ROS_INFO("Moving to waypoint %f %f %f in %d steps", nextWaypoint_(0),
+					nextWaypoint_(1), nextWaypoint_(2), stepsToNextWaypoint);
 	}
     else
 	{
