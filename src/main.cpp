@@ -8,7 +8,7 @@ int main(int argc, char **argv)
 
   try
   {
-    waypoint_control::waypointControl waypoint_control(nh);
+    waypointControl waypoint_control(nh);
     ros::spin();
   }
   catch(const std::exception &e)
