@@ -29,12 +29,12 @@ public:
     /**
     * Callback called when a single waypoint is published.
     */
-	void wptCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
+	void waypointCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
 
     /**
     * Callback called when a path of waypoints is published. Takes the first element in the list and assigns it to be the next goal position.
     */
-	void wptListCallback(const app_pathplanner_interface::PVATrajectory::ConstPtr &msg);
+	void waypointListCallback(const app_pathplanner_interface::PVATrajectory::ConstPtr &msg);
 
     /**
     * Caps xval between +- satBound
@@ -51,16 +51,18 @@ private:
     void readROSParameters(); 
 
 	ros::Publisher pvaRef_pub_;
+
 	ros::Subscriber pose_sub_;
 	ros::Subscriber waypoint_sub_;
 	ros::Subscriber waypointList_sub_, waypointVelList_sub_, waypointAccList_sub_;
+
 	nav_msgs::Odometry::ConstPtr initPose_;
-	geometry_msgs::PoseStamped::ConstPtr initWpt_;
-	int counter, wptListLen, waypointCounter, numPathsSoFar, stepsToNextWpt, stepCounter;
-	double wptTime, poseTime, gpsfps, hitDist, dt_default, t0, dtNextWpt;
+	geometry_msgs::PoseStamped::ConstPtr initWaypoint_;
+	int counter, waypointListLen, waypointCounter, numPathsSoFar, stepsToNextWaypoint, stepCounter;
+	double waypointTime, poseTime, gpsfps, hitDist, dt_default, t0, dtNextWaypoint;
 
 	//using Eigen when std::vector could be used instead in case we want to do matrix calcs with this stuff
-	Eigen::Vector3d errIntegral, eImax, vmax, amax, arenaCenter, next_wpt, uPID;
+	Eigen::Vector3d errIntegral, eImax, vmax, amax, arenaCenter, nextWaypoint_, uPID;
 
     /* PID Parameters */
     Eigen::Vector3d kp, kd, ki;
@@ -74,7 +76,7 @@ private:
     /* Future state vectors */
     Eigen::Vector3d nextVelocity_, nextAcceleration_;
 
-	std::string quadPoseTopic, quadWptTopic, publishtopicname, quadWptListTopic,
+	std::string quadPoseTopic, quadWaypointTopic, publishtopicname, quadWaypointListTopic,
 							quadVelListTopic, quadAccListTopic;
 	app_pathplanner_interface::PVATrajectory::ConstPtr global_path_msg;
 };
