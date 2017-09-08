@@ -146,16 +146,18 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 		nextVelocity_.setZero();
 		nextAcceleration_.setZero();
 		oldPose_=currentPose_;
-		oldVelocity_=currentVelocity_;
+//		oldVelocity_=currentVelocity_;
+		oldVelocity_.setZero();
 		oldAcceleration_.setZero();
 
 // 	    Eigen::Vector3d dt = (nextWaypoint_ - currentPose_).cwiseQuotient(vmax);
  	    Eigen::Vector3d dt = (nextWaypoint_ - currentPose_)/vmax_for_timing;
 		double estStepsMaxVel = std::ceil(dt.lpNorm<Eigen::Infinity>() / dt_default);
 		substep=1-1/estStepsMaxVel;
+		ROS_INFO("Substep: %f",substep);
 	}
 
-	ROS_INFO("subcount %f  zdist %f",substep,nextWaypoint_(2)-substep*(nextWaypoint_(2)-oldPose_(2)));
+	//ROS_INFO("subcount %f  zdist %f",substep,nextWaypoint_(2)-substep*(nextWaypoint_(2)-oldPose_(2)));
 	
 	//fill message fields
 	//The proper way to do this is with discrete integration but handling it with substeps is close enough
@@ -165,6 +167,7 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	PVA_Ref_msg.Pos.x = tmp(0);
 	PVA_Ref_msg.Pos.y = tmp(1);
 	PVA_Ref_msg.Pos.z = tmp(2);
+	ROS_INFO("x: %f  y: %f  z: %f",tmp(0),tmp(1),tmp(2));
 
     tmp = nextVelocity_ - substep * (nextVelocity_ - oldVelocity_);
 	PVA_Ref_msg.Vel.x = tmp(0);
@@ -176,9 +179,9 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	PVA_Ref_msg.Acc.y = tmp(1);
 	PVA_Ref_msg.Acc.z = tmp(2);
 
-	/*
-	static double zprev=
 	pvaRef_pub_.publish(PVA_Ref_msg);
+	/*
+	//static double zprev=
 	ROS_INFO("dz=%f");*/
 }
 

@@ -14,7 +14,7 @@
     <param name="az_max" value="1.0"/>
     <param name="vmax_for_timing" value="0.85"/> <!--Used for coarse timing/takeoff/etc -->
     <param name="vmax_real" value="1"/> <!-- Used to determine need for intermediate waypoints -->
-    <param name="waypointHitDist" value="0.2"/> <!-- Must be this close to record passage through wpt -->
+    <param name="waypointHitDist" value="0.1"/> <!-- Must be this close to record passage through wpt -->
     
     <!-- Position Control parameters -->
     <param name="mass" value="0.7762"/>       <!-- kg -->
@@ -42,9 +42,9 @@
     <!-- Misc parameters -->
     <param name="quadName" type="string" value="Valkyrie"/>
     <param name="quadPoseTopic" type="string" value="Valkyrie/local_odom"/>
-    <param name="quadWaypointTopic" type="string" value="Valkyrie/refPose"/> <!-- topic for single wpts -->
+    <param name="quadWaypointTopic" type="string" value="Valkyrie/refPose1"/> <!-- topic for single wpts -->
     <param name="quadWaypointListTopic" type="string" value="PosControl/PVATrajectory/Quad1"/> <!-- topic for lists of wpts -->
-    <param name="publishPVA_Topic" type="string" value="pvatest"/>
+    <param name="publishPVA_Topic" type="string" value="px4_control/PVA_Ref"/>
     <param name="gps_fps" value="20"/>
 
   </node>
