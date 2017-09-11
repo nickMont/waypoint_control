@@ -148,15 +148,19 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 		nextVelocity_.setZero();
 		nextAcceleration_.setZero();
 		oldPose_=currentPose_;
-		oldVelocity_=currentVelocity_;
-//		oldVelocity_.setZero();
+//		oldVelocity_=currentVelocity_;
+		oldVelocity_.setZero();
 		oldAcceleration_.setZero();
 
 // 	    Eigen::Vector3d dt = (nextWaypoint_ - currentPose_).cwiseQuotient(vmax);
  	    Eigen::Vector3d dt = (nextWaypoint_ - oldPose_)/vmax_for_timing;
 		double estStepsMaxVel = std::ceil(dt.lpNorm<Eigen::Infinity>() / dt_default);
 		substep=1-1/estStepsMaxVel;
-		ROS_INFO("Substep: %f",substep);
+		if(estStepsMaxVel<=2.1)  //forces origin since dt is almost always ~1.1 timesteps near origin
+		{
+			substep=0;
+		}
+//		ROS_INFO("Substep: %f",substep);
 	}
 
 	//ROS_INFO("subcount %f  zdist %f",substep,nextWaypoint_(2)-substep*(nextWaypoint_(2)-oldPose_(2)));
