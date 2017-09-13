@@ -58,7 +58,7 @@ private:
 
 	nav_msgs::Odometry::ConstPtr initPose_;
 	geometry_msgs::PoseStamped::ConstPtr initWaypoint_;
-	int counter, waypointListLen, waypointCounter, numPathsSoFar, stepsToNextWaypoint, stepCounter;
+	int counter, waypointListLen, waypointCounter, numPathsSoFar, stepsToNextWaypoint, stepCounter, arrivalModeFlag;
 	double waypointTime, poseTime, gpsfps, hitDist, dt_default, t0, dtNextWaypoint, vmax_for_timing, vmax_real;
 
 	//using Eigen when std::vector could be used instead in case we want to do matrix calcs with this stuff

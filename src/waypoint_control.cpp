@@ -10,7 +10,8 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
       oldPose_(0, 0, 0),
       oldVelocity_(0, 0, 0),
       oldAcceleration_(0, 0, 0),
-      numPathsSoFar(0)
+      numPathsSoFar(0),
+      arrivalModeFlag(0)
 {
     this->readROSParameters();
 
@@ -176,42 +177,89 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	PVA_Ref_msg.Pos.z = tmp(2);
 //	ROS_INFO("x: %f  y: %f  z: %f",tmp2(0),tmp2(1),tmp2(2));
 
+	/*
+	//Proper feedforward terms with valid references
     tmp = nextVelocity_ - substep * (nextVelocity_ - oldVelocity_);
 	PVA_Ref_msg.Vel.x = tmp(0);
 	PVA_Ref_msg.Vel.y = tmp(1);
 	PVA_Ref_msg.Vel.z = tmp(2);
+	*/
 
-    tmp = nextAcceleration_ - substep * (nextAcceleration_ - oldAcceleration_);
-	PVA_Ref_msg.Acc.x = tmp(0);
-	PVA_Ref_msg.Acc.y = tmp(1);
-	PVA_Ref_msg.Acc.z = tmp(2);
+	//try feedforward with vel=0
+	PVA_Ref_msg.Vel.x=0;
+	PVA_Ref_msg.Vel.y=0;
+	PVA_Ref_msg.Vel.z=0;
 
 	/*
-	if(tryTemp==1)
-	{
-		PVA_Ref_msg.Pos.x = 0;
-		PVA_Ref_msg.Pos.y = 0;
-		PVA_Ref_msg.Pos.z = 1;
-		PVA_Ref_msg.Vel.x = 0;
-		PVA_Ref_msg.Vel.y = 0;
-		PVA_Ref_msg.Vel.z = 0;
-		PVA_Ref_msg.Acc.x = 0;
-		PVA_Ref_msg.Acc.y = 0;
-		PVA_Ref_msg.Acc.z = 0;
-	}
+	//try feeforward with velocity necessary to hit new wpt, ignoring next wptVel
+	PVA_Ref_msg.Vel.x=tmp2(0)/dt_default;
+	PVA_Ref_msg.Vel.y=tmp2(1)/dt_default;
+	PVA_Ref_msg.Vel.z=tmp2(2)/dt_default;
+
 	*/
 
 	/*
-    tmp = nextWaypoint_ - substep * (nextWaypoint_ - oldPose_);
-    ROS_INFO("dx: %f dy: %f dz:%f",tmp(0)-0, tmp(1)-0,tmp(2)-1);
-    tmp = nextVelocity_ - substep * (nextVelocity_ - oldVelocity_);
-    ROS_INFO("vx: %f vy: %f vz:%f",tmp(0)-0, tmp(1)-0,tmp(2)-0);
-    */
+	//try feeforward with velocity necessary to hit new wpt
+	if(substep>0.01)
+	{
+		PVA_Ref_msg.Vel.x=tmp2(0)/dt_default;
+		PVA_Ref_msg.Vel.y=tmp2(1)/dt_default;
+		PVA_Ref_msg.Vel.z=tmp2(2)/dt_default;
+	}else
+	{
+		PVA_Ref_msg.Vel.x=nextVelocity_(0);
+		PVA_Ref_msg.Vel.y=nextVelocity_(1);
+		PVA_Ref_msg.Vel.z=nextVelocity_(2);
+	}
+	*/
+
+	PVA_Ref_msg.Acc.x=0;
+	PVA_Ref_msg.Acc.y=0;
+	PVA_Ref_msg.Acc.z=0;
+
+	/*
+	//px4_control uses accelerations for full FF reference
+	tmp = nextAcceleration_ - substep * (nextAcceleration_ - oldAcceleration_);
+	PVA_Ref_msg.Acc.x = tmp(0);
+	PVA_Ref_msg.Acc.y = tmp(1);
+	PVA_Ref_msg.Acc.z = tmp(2);
+	*/
+
+	/*
+	//"move" reference to model controller internally
+	//NOTE: MUST DISABLE INTEGRAL ACTION IN px4_control 
+	Eigen::Vector3d aFake, uDes;
+	Eigen::MatrixXd A_tr(6,6), Hx(3,6), xPV(6,1);
+	aFake=nextAcceleration_ - substep * (nextAcceleration_ - oldAcceleration_);
+
+	//fill xPV (full x-state)
+	for(int ij=0; ij<3; ij++)
+	{
+		xPV(ij)=currentPose_(ij);
+		xPV(ij+3)=currentVelocity_(ij);
+	}
+	Hx<<1, 0, 0, 0, 0, 0,
+		0, 1, 0, 0, 0, 0,
+		0, 0, 1, 0, 0, 0;
+
+	A_tr=Eigen::MatrixXd::Identity(6,6);
+	A_tr.topRightCorner(3, 3)    = dt_default*Eigen::MatrixXd::Identity(3,3);
+	tmp = nextWaypoint_ - substep * (nextWaypoint_ - oldPose_);
+	Eigen::Vector3d dx_des=tmp-Hx*A_tr*xPV;  //outputs desired delta_x
+	uDes=(dx_des*2.0/dt_default/dt_default).cwiseQuotient(kp);
+
+	PVA_Ref_msg.Pos.x=currentPose_(0)+uDes(0);
+	PVA_Ref_msg.Pos.y=currentPose_(1)+uDes(1);
+	PVA_Ref_msg.Pos.z=currentPose_(2)+uDes(2);
+	PVA_Ref_msg.Vel.x=currentVelocity_(0);
+	PVA_Ref_msg.Vel.y=currentVelocity_(1);
+	PVA_Ref_msg.Vel.z=currentVelocity_(2);
+	PVA_Ref_msg.Acc.x=aFake(0);
+	PVA_Ref_msg.Acc.y=aFake(1);
+	PVA_Ref_msg.Acc.z=aFake(2);
+	*/
 
 	pvaRef_pub_.publish(PVA_Ref_msg);
-	/*
-	//static double zprev=
-	ROS_INFO("dz=%f");*/
 }
 
 
@@ -219,6 +267,7 @@ void waypointControl::waypointListCallback(const app_pathplanner_interface::PVAT
 {
 	//int nn= ;//length of pose list
 	numPathsSoFar++;
+	arrivalModeFlag=0;
 	if(msg) {
 		waypointListLen=msg->pva.size();
 		global_path_msg = msg;
@@ -408,7 +457,11 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
 		}
         else
 		{
-			ROS_INFO("Final waypoint reached, holding station.");
+			if(arrivalModeFlag==0) //only print arrival message once
+			{
+				ROS_INFO("Final waypoint reached, holding station.");
+			}
+			arrivalModeFlag=1;
 
 			//Set old VA to 0 to hold station
 			nextVelocity_.setZero();
