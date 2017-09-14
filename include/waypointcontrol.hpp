@@ -41,6 +41,7 @@ public:
     */
 	double saturationF(double &xval, const double satbound);
 	void checkArrival(const Eigen::Vector3d &cPose);
+    void updateArrivalTiming(const Eigen::Vector3d &cPose);
 	void limitAcceleration(const Eigen::Vector3d &vv, Eigen::Vector3d &uu);
 
 private:

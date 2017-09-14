@@ -115,7 +115,12 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	//if there is a path, follow it.  If not, hover near arena center
     if(global_path_msg)
     {
-		checkArrival(currentPose_);
+    	if(hitDist>0.001)
+    	{
+			checkArrival(currentPose_);
+		}else{
+			updateArrivalTiming(currentPose_);
+		}
 //		limitAcceleration(currentVelocity_,uPID);
 
 		//Move to next waypoint in multiple substeps
@@ -189,29 +194,6 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	PVA_Ref_msg.Vel.x=0;
 	PVA_Ref_msg.Vel.y=0;
 	PVA_Ref_msg.Vel.z=0;
-
-	/*
-	//try feeforward with velocity necessary to hit new wpt, ignoring next wptVel
-	PVA_Ref_msg.Vel.x=tmp2(0)/dt_default;
-	PVA_Ref_msg.Vel.y=tmp2(1)/dt_default;
-	PVA_Ref_msg.Vel.z=tmp2(2)/dt_default;
-
-	*/
-
-	/*
-	//try feeforward with velocity necessary to hit new wpt
-	if(substep>0.01)
-	{
-		PVA_Ref_msg.Vel.x=tmp2(0)/dt_default;
-		PVA_Ref_msg.Vel.y=tmp2(1)/dt_default;
-		PVA_Ref_msg.Vel.z=tmp2(2)/dt_default;
-	}else
-	{
-		PVA_Ref_msg.Vel.x=nextVelocity_(0);
-		PVA_Ref_msg.Vel.y=nextVelocity_(1);
-		PVA_Ref_msg.Vel.z=nextVelocity_(2);
-	}
-	*/
 
 	PVA_Ref_msg.Acc.x=0;
 	PVA_Ref_msg.Acc.y=0;
@@ -454,8 +436,7 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
 
             errIntegral.setZero();
 			ROS_INFO("Waypoint reached, moving to waypoint %f\t%f\t%f",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2));
-		}
-        else
+		}else
 		{
 			if(arrivalModeFlag==0) //only print arrival message once
 			{
@@ -471,5 +452,84 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
 		}
 	}
 }
+
+void waypointControl::updateArrivalTiming(const Eigen::Vector3d &cPose)
+{
+	if(!global_path_msg) return;
+
+	if(stepCounter>=stepsToNextWaypoint)
+	{
+
+		//if not at endpoint
+		if(waypointCounter < waypointListLen - 1)
+		{
+			waypointCounter++;
+
+            // Update the old waypoint info
+			this->oldPose_          = this->nextWaypoint_;
+			this->oldVelocity_      = this->nextVelocity_;
+			this->oldAcceleration_  = this->nextAcceleration_;
+
+            /* Update the new waypoint info */
+            this->nextWaypoint_ = Eigen::Vector3d(
+			    global_path_msg->pva[waypointCounter].pos.position.x,
+			    global_path_msg->pva[waypointCounter].pos.position.y,
+		        global_path_msg->pva[waypointCounter].pos.position.z
+            ) + arenaCenter;
+
+            this->nextVelocity_ = Eigen::Vector3d(
+		        global_path_msg->pva[waypointCounter].vel.linear.x,
+			    global_path_msg->pva[waypointCounter].vel.linear.y,
+			    global_path_msg->pva[waypointCounter].vel.linear.z
+            );
+
+            this->nextAcceleration_ = Eigen::Vector3d(
+                global_path_msg->pva[waypointCounter].acc.linear.x,
+			    global_path_msg->pva[waypointCounter].acc.linear.y,
+			    global_path_msg->pva[waypointCounter].acc.linear.z
+            );
+
+			//if you have the next time, find segment chunks that correspond to it. Otherwise, guesstimate.
+			if(global_path_msg->pva[waypointCounter].header.stamp.toSec() > 1e-4 )
+			{
+				dtNextWaypoint=(global_path_msg->pva[waypointCounter].header.stamp).toSec() -
+									 (global_path_msg->pva[waypointCounter-1].header.stamp).toSec()
+									 -0.001;  //subtracting 0.001 to handle roundoff in minimum snap node			
+			}
+            else
+			{
+				//guesstimate timing
+                this->dtNextWaypoint =  ((nextWaypoint_ - cPose).cwiseQuotient(vmax)).lpNorm<Eigen::Infinity>();
+			}
+			stepsToNextWaypoint = ceil(dtNextWaypoint/dt_default);
+			stepCounter = 0;
+
+            errIntegral.setZero();
+            //print status
+            ROS_INFO("Waypoint time reached, moving to waypoint %f\t%f\t%f",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2));
+		}else
+		{
+			if(arrivalModeFlag==0) //only print arrival message once
+			{
+				ROS_INFO("Final waypoint reached, holding station.");
+			}
+			arrivalModeFlag=1;
+
+			//Set old VA to 0 to hold station
+			nextVelocity_.setZero();
+			nextAcceleration_.setZero();
+			oldVelocity_.setZero();
+			oldAcceleration_.setZero();
+		}
+	}
+}
+
+
+
+
+
+
+
+
 
 

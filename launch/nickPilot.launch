@@ -14,7 +14,8 @@
     <param name="az_max" value="1.0"/>
     <param name="vmax_for_timing" value="3"/> <!--Used for coarse timing/takeoff/etc -->
     <param name="vmax_real" value="4"/> <!-- Used to determine need for intermediate waypoints -->
-    <param name="waypointHitDist" value="0.1"/> <!-- Must be this close to record passage through wpt -->
+    <param name="waypointHitDist" value="0.15"/> <!-- Must be this close to record passage through wpt -->
+        <!-- Set wptHitDist=0 to enable timing option -->
     
     <!-- Position Control parameters -->
     <param name="mass" value="0.7762"/>       <!-- kg -->
