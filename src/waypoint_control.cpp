@@ -15,6 +15,8 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
 {
     this->readROSParameters();
 
+    errIntegral.setZero();
+
 	// Arena center is takeoff location. +1 meter to ensure takeoff. 
     this->nextWaypoint_ = this->arenaCenter + Eigen::Vector3d(0, 0, 1);
 
@@ -64,6 +66,7 @@ void waypointControl::readROSParameters()
 	ros::param::get("waypoint_control_node/maxInteg_X", eImax(0));
 	ros::param::get("waypoint_control_node/maxInteg_Y", eImax(1));
 	ros::param::get("waypoint_control_node/maxInteg_Z", eImax(2));
+	ros::param::get("waypoint_control_node/mass", quadMass);
 
 	// Safety parameters. Only currently in use to make intermediate points when initalizing
 	ros::param::get("waypoint_control_node/vx_max", vmax(0));
@@ -71,9 +74,9 @@ void waypointControl::readROSParameters()
 	ros::param::get("waypoint_control_node/vz_max", vmax(2));
 	ros::param::get("waypoint_control_node/gps_fps", gpsfps);
 	ros::param::get("waypoint_control_node/waypointHitDist", hitDist);
-	ros::param::get("waypoint_control_node/ax_max", amax(0));
-	ros::param::get("waypoint_control_node/ay_max", amax(1));
-	ros::param::get("waypoint_control_node/az_max", amax(2));
+	ros::param::get("waypoint_control_node/ax_max", max_accel(0));
+	ros::param::get("waypoint_control_node/ay_max", max_accel(1));
+	ros::param::get("waypoint_control_node/az_max", max_accel(2));
 	ros::param::get("waypoint_control_node/xCenter", arenaCenter(0));
 	ros::param::get("waypoint_control_node/yCenter", arenaCenter(1));
 	ros::param::get("waypoint_control_node/zCenter", arenaCenter(2));
@@ -108,9 +111,6 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
     //Prepare for multiple cases
    	double substep;
-	//uses the PVA message from px4_control package
-	px4_control::PVA PVA_Ref_msg;
-	PVA_Ref_msg.yaw = 0.0;	//can try nonzero if optimal
 
 	//if there is a path, follow it.  If not, hover near arena center
     if(global_path_msg)
@@ -169,28 +169,52 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 //		ROS_INFO("Substep: %f",substep);
 	}
 
-	//ROS_INFO("subcount %f  zdist %f",substep,nextWaypoint_(2)-substep*(nextWaypoint_(2)-oldPose_(2)));
+	//uses the PVA message from px4_control package
+	px4_control::PVA PVA_Ref_msg;
+	PVA_Ref_msg.yaw = 0.0;	//can try nonzero if optimal
 	
 	//fill message fields
 	//The proper way to do this is with discrete integration but handling it with substeps is close enough
-    Eigen::Vector3d tmp, tmp2;
+    Eigen::Vector3d tmp, tmp2, uPID;
 
-    tmp = nextWaypoint_ - substep * (nextWaypoint_ - oldPose_);
-    tmp2=tmp-oldPose_;
-	PVA_Ref_msg.Pos.x = tmp(0);
-	PVA_Ref_msg.Pos.y = tmp(1);
-	PVA_Ref_msg.Pos.z = tmp(2);
-//	ROS_INFO("x: %f  y: %f  z: %f",tmp2(0),tmp2(1),tmp2(2));
+    //Uses PID controller unique to waypoint_control
+    PVA_Ref_msg.Pos.x = currentPose_(0); //send errors of 0 to px4_control, handle everything via feedforward
+    PVA_Ref_msg.Pos.y = currentPose_(1);
+    PVA_Ref_msg.Pos.z = currentPose_(2);
+    PVA_Ref_msg.Vel.x = currentVelocity_(0); //send 0 error
+    PVA_Ref_msg.Vel.y = currentVelocity_(1);
+    PVA_Ref_msg.Vel.z = currentVelocity_(2);
 
-	/*
-	//Proper feedforward terms with valid references
+    //tmp refers to e, edot for this controller
+    tmp = (nextWaypoint_ - substep * (nextWaypoint_ - oldPose_)) - currentPose_;
+    errIntegral = errIntegral + dt_default*tmp;
+    errIntegral = vectorSaturationF(errIntegral, eImax);
+    tmp2 = -1.0*currentVelocity_;
+    //construct PID to send via FF
+    uPID = (1.0/quadMass)*(kp.cwiseProduct(tmp) + kd.cwiseProduct(tmp2) + ki.cwiseProduct(errIntegral));
+    uPID = vectorSaturationF(uPID,max_accel);
+    //note: px4_control multiplies FF by mass but does not multiply PID by mass so we have to cancel it.
+    PVA_Ref_msg.Acc.x = uPID(0);
+    PVA_Ref_msg.Acc.y = uPID(1);
+    PVA_Ref_msg.Acc.z = uPID(2);
+
+
+/*
+	//Proper feedforward terms with valid references.  Does not handle noise well.
     tmp = nextVelocity_ - substep * (nextVelocity_ - oldVelocity_);
 	PVA_Ref_msg.Vel.x = tmp(0);
 	PVA_Ref_msg.Vel.y = tmp(1);
 	PVA_Ref_msg.Vel.z = tmp(2);
-	*/
+*/
 
-	//try feedforward with vel=0
+/*
+	//Working code that uses the underlying PID in px4_control.
+	tmp = nextWaypoint_ - substep * (nextWaypoint_ - oldPose_);
+    tmp2=tmp-oldPose_;
+ //	ROS_INFO("x: %f  y: %f  z: %f",tmp2(0),tmp2(1),tmp2(2));
+	PVA_Ref_msg.Pos.x = tmp(0);
+	PVA_Ref_msg.Pos.y = tmp(1);
+	PVA_Ref_msg.Pos.z = tmp(2);
 	PVA_Ref_msg.Vel.x=0;
 	PVA_Ref_msg.Vel.y=0;
 	PVA_Ref_msg.Vel.z=0;
@@ -198,16 +222,17 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	PVA_Ref_msg.Acc.x=0;
 	PVA_Ref_msg.Acc.y=0;
 	PVA_Ref_msg.Acc.z=0;
+*/
 
-	/*
+/*
 	//px4_control uses accelerations for full FF reference
 	tmp = nextAcceleration_ - substep * (nextAcceleration_ - oldAcceleration_);
 	PVA_Ref_msg.Acc.x = tmp(0);
 	PVA_Ref_msg.Acc.y = tmp(1);
 	PVA_Ref_msg.Acc.z = tmp(2);
-	*/
+*/
 
-	/*
+/*
 	//"move" reference to model controller internally
 	//NOTE: MUST DISABLE INTEGRAL ACTION IN px4_control 
 	Eigen::Vector3d aFake, uDes;
@@ -239,7 +264,7 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	PVA_Ref_msg.Acc.x=aFake(0);
 	PVA_Ref_msg.Acc.y=aFake(1);
 	PVA_Ref_msg.Acc.z=aFake(2);
-	*/
+*/
 
 	pvaRef_pub_.publish(PVA_Ref_msg);
 }
@@ -336,6 +361,19 @@ double waypointControl::saturationF(double &xval, const double satbound)
 }
 
 
+Eigen::Vector3d waypointControl::vectorSaturationF(Eigen::Vector3d &vec1, const Eigen::Vector3d &vecSatbound)
+{
+	for(int i=0; i<3; i++)
+	{
+		if(vec1(i) > vecSatbound(i)){
+			vec1(i) = vecSatbound(i);
+		}else if(vec1(i) < -1*vecSatbound(i)){
+			vec1(i) = -1*vecSatbound(i);
+		}
+	}
+}
+
+
 void waypointControl::limitAcceleration(const Eigen::Vector3d &vv, Eigen::Vector3d &uu)
 {
 	Eigen::Vector3d velWithAccel;
@@ -347,9 +385,9 @@ void waypointControl::limitAcceleration(const Eigen::Vector3d &vv, Eigen::Vector
 		if(velWithAccel(i) > vmax(i)) //handles positive rel speed
 		{
 			aCheck = (vmax(i) - velWithAccel(i)) / dt_default;
-			if(abs(aCheck) > amax(i))
+			if(abs(aCheck) > max_accel(i))
 			{
-				uu(i) = abs(aCheck) / aCheck * amax(i); //sign(a) * a_max
+				uu(i) = abs(aCheck) / aCheck * max_accel(i); //sign(a) * a_max
 			}
             else
 			{
@@ -359,9 +397,9 @@ void waypointControl::limitAcceleration(const Eigen::Vector3d &vv, Eigen::Vector
         else if(velWithAccel(i) < -vmax(i)) //handles negative rel speed
 		{
 			aCheck = (-vmax(i) - velWithAccel(i)) / dt_default;
-			if(abs(aCheck) > amax(i))
+			if(abs(aCheck) > max_accel(i))
 			{
-				uu(i) = abs(aCheck) / aCheck * amax(i); //sign(a) * a_max
+				uu(i) = abs(aCheck) / aCheck * max_accel(i); //sign(a) * a_max
 			}
             else
 			{

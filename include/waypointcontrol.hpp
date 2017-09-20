@@ -43,6 +43,7 @@ public:
 	void checkArrival(const Eigen::Vector3d &cPose);
     void updateArrivalTiming(const Eigen::Vector3d &cPose);
 	void limitAcceleration(const Eigen::Vector3d &vv, Eigen::Vector3d &uu);
+    Eigen::Vector3d vectorSaturationF(Eigen::Vector3d &vec1, const Eigen::Vector3d &vecSatbound);
 
 private:
 
@@ -60,10 +61,10 @@ private:
 	nav_msgs::Odometry::ConstPtr initPose_;
 	geometry_msgs::PoseStamped::ConstPtr initWaypoint_;
 	int counter, waypointListLen, waypointCounter, numPathsSoFar, stepsToNextWaypoint, stepCounter, arrivalModeFlag;
-	double waypointTime, poseTime, gpsfps, hitDist, dt_default, t0, dtNextWaypoint, vmax_for_timing, vmax_real;
+	double waypointTime, poseTime, gpsfps, hitDist, dt_default, t0, dtNextWaypoint, vmax_for_timing, vmax_real, quadMass;
 
 	//using Eigen when std::vector could be used instead in case we want to do matrix calcs with this stuff
-	Eigen::Vector3d errIntegral, eImax, vmax, amax, arenaCenter, nextWaypoint_, uPID;
+	Eigen::Vector3d errIntegral, eImax, vmax, max_accel, arenaCenter, nextWaypoint_, uPID;
 
     /* PID Parameters */
     Eigen::Vector3d kp, kd, ki;
