@@ -15,9 +15,11 @@ find_package(catkin REQUIRED COMPONENTS
 	message_generation
 	cmake_modules
 	app_pathplanner_interface
+	px4_control
 )
 
-find_package(Eigen REQUIRED)
+find_package(Eigen REQUIRED
+	px4_control)
 
 # Add custom message files
 add_message_files(DIRECTORY msg FILES

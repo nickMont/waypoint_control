@@ -3,12 +3,15 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <sensor_msgs/Joy.h>
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <Eigen/Geometry>
 #include <string>
 #include <iostream>
 #include <px4_control/PVA.h>
+#include <px4_control/updatePx4param.h>
+//#include <px4_control/srv/updatePx4param.srv>
 #include <app_pathplanner_interface/PVATrajectory.h>
 #include <app_pathplanner_interface/PVA_Stamped.h>
 
@@ -21,6 +24,10 @@ public:
     */
 	waypointControl(ros::NodeHandle &nh);
 
+    /**
+    * Callback that resets control param when joy mode changes
+    */
+    void joyCallback(const sensor_msgs::Joy &msg);
     /** 
     * Callback called whenever a pose message is published from the state estimator topic 
     */
@@ -53,10 +60,8 @@ private:
     void readROSParameters(); 
 
 	ros::Publisher pvaRef_pub_;
-
-	ros::Subscriber pose_sub_;
-	ros::Subscriber waypoint_sub_;
-	ros::Subscriber waypointList_sub_, waypointVelList_sub_, waypointAccList_sub_;
+	ros::Subscriber waypoint_sub_, joy_sub_, pose_sub_, waypointList_sub_, waypointVelList_sub_, waypointAccList_sub_;
+    ros::ServiceClient controlParamUpdate; 
 
 	nav_msgs::Odometry::ConstPtr initPose_;
 	geometry_msgs::PoseStamped::ConstPtr initWaypoint_;
@@ -67,7 +72,7 @@ private:
 	Eigen::Vector3d errIntegral, eImax, vmax, max_accel, arenaCenter, nextWaypoint_, uPID;
 
     /* PID Parameters */
-    Eigen::Vector3d kp, kd, ki;
+    Eigen::Vector3d kp, kd, ki, kp_pos, kd_pos, ki_pos, eImax_pos;
 
     /* Previous state vectors */
     Eigen::Vector3d oldPose_, oldVelocity_, oldAcceleration_;
@@ -79,7 +84,7 @@ private:
     Eigen::Vector3d nextVelocity_, nextAcceleration_;
 
 	std::string quadPoseTopic, quadWaypointTopic, publishtopicname, quadWaypointListTopic,
-							quadVelListTopic, quadAccListTopic;
+							quadVelListTopic, quadAccListTopic, joyTopic;
 	app_pathplanner_interface::PVATrajectory::ConstPtr global_path_msg;
 };
 
