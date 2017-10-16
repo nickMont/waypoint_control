@@ -18,20 +18,23 @@
         <!-- Set wptHitDist=0 to enable timing option -->
 
     <!-- PATH FOLLOWING PARAMETERS -->
-    <param name="kpX" value="3.8"/>
-    <param name="kpY" value="3.8"/>
+    <param name="kpX" value="2.8"/> <!-- 3.8 -->
+    <param name="kpY" value="2.8"/>
     <param name="kpZ" value="2.6"/>
-    <param name="kdX" value="1.4"/>
-    <param name="kdY" value="1.4"/>
-    <param name="kdZ" value="1.8"/>
+    <param name="kdX" value="1.0"/> <!-- 1.8 -->
+    <param name="kdY" value="1.0"/>
+    <param name="kdZ" value="1.1"/>
     <param name="kiX" value="0.25"/>
     <param name="kiY" value="0.25"/>
     <param name="kiZ" value="0.3"/>
+    <param name="kfx" value="0.05"/> <!-- feedforward gains -->
+    <param name="kfy" value="0.05"/>
+    <param name="kfz" value="0.05"/>
     <param name="maxInteg_X" value="1.5"/>
     <param name="maxInteg_Y" value="1.5"/>
     <param name="maxInteg_Z" value="1.5"/>
     
-    <!-- COPY OF PX4_CONTROL PARAMETERS  (this node changes between original gains and PF gains and needs to know all of it to udpate properly) -->
+    <!-- COPY OF PX4_CONTROL PARAMETERS  (this node changes between posMode gains and wptCtrl gains and needs to know all of it to udpate properly) -->
     <param name="mass" value="0.7762"/>       <!-- kg -->
     <param name="gz" value="9.81"/>          <!-- m/s^2 -->
     <param name="thrustRatio" value="1.5"/>  <!-- maxThrust/Weight -->

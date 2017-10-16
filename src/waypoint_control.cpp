@@ -51,6 +51,7 @@ void waypointControl::readROSParameters()
 	ros::param::get("waypoint_control_node/quadWaypointListTopic", quadWaypointListTopic);
 	ros::param::get("waypoint_control_node/joyTopic", joyTopic);
 	ros::param::get("waypoint_control_node/publishPVA_Topic", publishtopicname);
+	ros::param::get("waypoint_control_node/defaultMode",default_mode);
 
 	//confirm that parameters were read correctly
 	ROS_INFO("Preparing pose subscriber on channel %s",quadPoseTopic.c_str());
@@ -67,6 +68,9 @@ void waypointControl::readROSParameters()
 	ros::param::get("waypoint_control_node/kpZ", kp(2));
 	ros::param::get("waypoint_control_node/kdZ", kd(2));
 	ros::param::get("waypoint_control_node/kiZ", ki(2));
+	ros::param::get("waypoint_control_node/kfx", kf_ff(0));
+	ros::param::get("waypoint_control_node/kfy", kf_ff(1));
+	ros::param::get("waypoint_control_node/kfz", kf_ff(2));
 	ros::param::get("waypoint_control_node/maxInteg_X", eImax(0));
 	ros::param::get("waypoint_control_node/maxInteg_Y", eImax(1));
 	ros::param::get("waypoint_control_node/maxInteg_Z", eImax(2));
@@ -85,6 +89,20 @@ void waypointControl::readROSParameters()
 	ros::param::get("waypoint_control_node/maxInteg_X_p", eImax_pos(0));
 	ros::param::get("waypoint_control_node/maxInteg_Y_p", eImax_pos(1));
 	ros::param::get("waypoint_control_node/maxInteg_Z_p", eImax_pos(2));
+
+	// Parameters of px4_control
+	ros::param::get("waypoint_control_node/kpX_h", kp_hov(0));
+	ros::param::get("waypoint_control_node/kdX_h", kd_hov(0));
+	ros::param::get("waypoint_control_node/kiX_h", ki_hov(0));
+	ros::param::get("waypoint_control_node/kpY_h", kp_hov(1));
+	ros::param::get("waypoint_control_node/kdY_h", kd_hov(1));
+	ros::param::get("waypoint_control_node/kiY_h", ki_hov(1));
+	ros::param::get("waypoint_control_node/kpZ_h", kp_hov(2));
+	ros::param::get("waypoint_control_node/kdZ_h", kd_hov(2));
+	ros::param::get("waypoint_control_node/kiZ_h", ki_hov(2));
+	ros::param::get("waypoint_control_node/maxInteg_X_h", eImax_hov(0));
+	ros::param::get("waypoint_control_node/maxInteg_Y_h", eImax_hov(1));
+	ros::param::get("waypoint_control_node/maxInteg_Z_h", eImax_hov(2));
 
 	// Safety parameters. Only currently in use to make intermediate points when initalizing
 	ros::param::get("waypoint_control_node/vx_max", vmax(0));
@@ -231,26 +249,54 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
 	//Working code that uses the underlying PID in px4_control.
 	tmp = nextWaypoint_ - substep * (nextWaypoint_ - oldPose_);
-    tmp2=tmp-oldPose_;
+    tmp2 = tmp-oldPose_;
  //	ROS_INFO("x: %f  y: %f  z: %f",tmp2(0),tmp2(1),tmp2(2));
 	PVA_Ref_msg.Pos.x = tmp(0);
 	PVA_Ref_msg.Pos.y = tmp(1);
 	PVA_Ref_msg.Pos.z = tmp(2);
+
+	/*
+	tmp = nextVelocity_ - substep * (nextVelocity_ - oldVelocity_);
+	PVA_Ref_msg.Vel.x=tmp(0);
+	PVA_Ref_msg.Vel.y=tmp(1);
+	PVA_Ref_msg.Vel.z=tmp(2);
+
+	//px4_control uses accelerations for full FF reference
+	tmp = (nextAcceleration_ - substep * (nextAcceleration_ - oldAcceleration_));
+	PVA_Ref_msg.Acc.x = kf_ff(0)*tmp(0);
+	PVA_Ref_msg.Acc.y = kf_ff(1)*tmp(1);
+	PVA_Ref_msg.Acc.z = kf_ff(2)*tmp(2);
+	*/
+
 	PVA_Ref_msg.Vel.x=0;
 	PVA_Ref_msg.Vel.y=0;
 	PVA_Ref_msg.Vel.z=0;
-
 	PVA_Ref_msg.Acc.x=0;
 	PVA_Ref_msg.Acc.y=0;
 	PVA_Ref_msg.Acc.z=0;
 
 
 /*
-	//px4_control uses accelerations for full FF reference
-	tmp = nextAcceleration_ - substep * (nextAcceleration_ - oldAcceleration_);
-	PVA_Ref_msg.Acc.x = tmp(0);
-	PVA_Ref_msg.Acc.y = tmp(1);
-	PVA_Ref_msg.Acc.z = tmp(2);
+	//Discrete time optimal FF gain (too aggressive for stochastic use)
+	Eigen::MatrixXd A_tr(6,6), Hx(3,6), B_tr(6,3), K_tr(3,6), eye6(6,6), N_tr(3,3);
+	A_tr=Eigen::MatrixXd::Identity(6,6);
+	A_tr.topRightCorner(3, 3) = dt_default*Eigen::MatrixXd::Identity(3,3);
+	Hx<<1, 0, 0, 0, 0, 0,
+		0, 1, 0, 0, 0, 0,
+		0, 0, 1, 0, 0, 0;
+	B_tr<<dt_default, 0, 0,
+		0, dt_default, 0,
+		0, 0, dt_default,
+		dt_default*dt_default/2, 0, 0,
+		0, dt_default*dt_default/2, 0,
+		0, 0, dt_default*dt_default/2;
+	eye6=Eigen::MatrixXd::Identity(6,6);
+	K_tr<<kp(0), 0, 0, kd(0), 0, 0,
+		0, kp(1), 0, 0, kd(1), 0,
+		0, 0, kp(2), 0, 0, kd(2);
+	N_tr = (-Hx*(A_tr - B_tr*K_tr - eye6).inverse()*B_tr).inverse(); 
+	ROS_INFO("%f %f %f \n %f %f %f \n %f %f %f", N_tr(0,0), N_tr(0,1), N_tr(0,2), N_tr(1,0), N_tr(1,1),
+		N_tr(1,2), N_tr(2,0), N_tr(2,1), N_tr(2,2));
 */
 
 /*
@@ -349,7 +395,7 @@ void waypointControl::waypointListCallback(const app_pathplanner_interface::PVAT
 
 void waypointControl::joyCallback(const sensor_msgs::Joy &msg)
 {
-	if(msg.buttons[1]==1) //ROS mode 
+	if(msg.buttons[1]==1) //pressed B
 	{
 		//ROS_INFO("service called");
 		px4_control::updatePx4param param_srv;
@@ -358,7 +404,32 @@ void waypointControl::joyCallback(const sensor_msgs::Joy &msg)
 			eImax(0),eImax(1),eImax(2)};
 		controlParamUpdate.call(param_srv);
 		
-	}else if(msg.buttons[2]==1)
+	}else if(msg.buttons[2]==1)  //pressed X
+	{
+		if(default_mode.compare("aggressive")==0)
+		{
+			//ROS_INFO("service called");
+			px4_control::updatePx4param param_srv;
+			param_srv.request.data.resize(10);
+			param_srv.request.data={kp_pos(0),kp_pos(1),kp_pos(2),kd_pos(0),kd_pos(1),kd_pos(2),
+				ki_pos(0),ki_pos(1),ki_pos(2),eImax_pos(0),eImax_pos(1),eImax_pos(2)};
+			controlParamUpdate.call(param_srv);
+		}else
+		{
+			px4_control::updatePx4param param_srv;
+			param_srv.request.data.resize(10);
+			param_srv.request.data={kp_hov(0),kp_hov(1),kp_hov(2),kd_hov(0),kd_hov(1),kd_hov(2),
+				ki_hov(0),ki_hov(1),ki_hov(2),eImax_hov(0),eImax_hov(1),eImax_hov(2)};
+			controlParamUpdate.call(param_srv);
+		}
+	}else if(msg.axes[7]>=0.9) //pressed UP on dpad
+	{
+		px4_control::updatePx4param param_srv;
+		param_srv.request.data.resize(10);
+		param_srv.request.data={kp_hov(0),kp_hov(1),kp_hov(2),kd_hov(0),kd_hov(1),kd_hov(2),
+			ki_hov(0),ki_hov(1),ki_hov(2),eImax_hov(0),eImax_hov(1),eImax_hov(2)};
+		controlParamUpdate.call(param_srv);
+	}else if(msg.axes[7]<=-0.9) //pressed DOWN on dpad
 	{
 		//ROS_INFO("service called");
 		px4_control::updatePx4param param_srv;
