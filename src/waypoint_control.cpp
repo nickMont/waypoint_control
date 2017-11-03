@@ -187,7 +187,7 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	{
 		//set next wpt to be stationary at arena center
 		nextWaypoint_=arenaCenter;
-		nextWaypoint_(2)=arenaCenter(2)+1;
+		nextWaypoint_(2)=arenaCenter(2) + 1; //take off and stay there
 		nextVelocity_.setZero();
 		nextAcceleration_.setZero();
 		oldPose_=currentPose_;
@@ -659,7 +659,7 @@ void waypointControl::updateArrivalTiming(const Eigen::Vector3d &cPose)
 
             errIntegral.setZero();
             //print status
-            ROS_INFO("Waypoint time reached, moving to waypoint %f\t%f\t%f",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2));
+            ROS_INFO("Waypoint time reached, moving to waypoint %f\t%f\t%f in %d steps",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2), stepsToNextWaypoint);
 		}else
 		{
 			if(arrivalModeFlag==0) //only print arrival message once
