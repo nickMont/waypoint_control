@@ -35,9 +35,9 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
 	ROS_INFO("REMEMBER TO CHANGE TO LOCAL POSE MODE");
 
 //	//get initial pose
-//	ROS_INFO("Waiting for first position measurement...");
-//	initPose_ = ros::topic::waitForMessage<nav_msgs::Odometry>(quadPoseTopic);
-//	ROS_INFO("Initial position: %f\t%f\t%f", initPose_->pose.pose.position.x, initPose_->pose.pose.position.y, initPose_->pose.pose.position.z);
+	ROS_INFO("Waiting for first position measurement...");
+	initPose_ = ros::topic::waitForMessage<nav_msgs::Odometry>(quadPoseTopic);
+	ROS_INFO("Initial position: %f\t%f\t%f", initPose_->pose.pose.position.x, initPose_->pose.pose.position.y, initPose_->pose.pose.position.z);
 //	next_wpt(0)=initPose_->pose.pose.position.x;
 //	next_wpt(1)=initPose_->pose.pose.position.y;
 //	next_wpt(2)=initPose_->pose.pose.position.z+1; //1m above initial pose
@@ -129,7 +129,7 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	//static ros::Time t_last_proc = msg->header.stamp;
 	//double dt = (msg->header.stamp - t_last_proc).toSec();
 	//t_last_proc = msg->header.stamp;
-	
+
 	//PID3 structure can also be used here
     this->currentPose_ = Eigen::Vector3d(
 	    msg->pose.pose.position.x,
@@ -147,11 +147,15 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
     int tryTemp=1;
 
     //Prepare for multiple cases
-   	double substep;
+   	double substep, vmaxToUse;
 
 	//if there is a path, follow it.  If not, hover near arena center
     if(global_path_msg)
     {
+    	if(waypointCounter<1)
+    	{vmaxToUse=vmax_for_timing;}
+    	else{vmaxToUse=vmax_real;}
+
     	if(hitDist>0.001)
     	{
 			checkArrival(currentPose_);
@@ -162,7 +166,7 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
 		//Move to next waypoint in multiple substeps
 		//Check to see if the window needs to increase in size
- 	    Eigen::Vector3d dt = (nextWaypoint_ - currentPose_)/vmax_real;
+ 	    Eigen::Vector3d dt = (nextWaypoint_ - currentPose_)/vmaxToUse;  //normally use vmax_real here
 		double estStepsMaxVel = std::ceil(dt.lpNorm<Eigen::Infinity>() / dt_default);
 
 		if(estStepsMaxVel > stepsToNextWaypoint - stepCounter) //+1 to account for noise 
@@ -186,14 +190,16 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	}else  //if no message has been received
 	{
 		//set next wpt to be stationary at arena center
-		nextWaypoint_=arenaCenter;
-		nextWaypoint_(2)=arenaCenter(2) + 1; //take off and stay there
+		nextWaypoint_=arenaCenter; //desired init pose
+		//nextWaypoint_(2)=arenaCenter(2) + 1; //behavior of "take off and hover at 1m" REMOVED
 		nextVelocity_.setZero();
 		nextAcceleration_.setZero();
 		oldPose_=currentPose_;
 //		oldVelocity_=currentVelocity_;
 		oldVelocity_.setZero();
 		oldAcceleration_.setZero();
+
+		nextYaw_=0.0;
 
 // 	    Eigen::Vector3d dt = (nextWaypoint_ - currentPose_).cwiseQuotient(vmax);
  	    Eigen::Vector3d dt = (nextWaypoint_ - oldPose_)/vmax_for_timing;
@@ -208,7 +214,7 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
 	//uses the PVA message from px4_control package
 	px4_control::PVA PVA_Ref_msg;
-	PVA_Ref_msg.yaw = 0.0;	//can try nonzero if optimal
+	PVA_Ref_msg.yaw = nextYaw_;	//can try nonzero if optimal
 	
 	//fill message fields
 	//The proper way to do this is with discrete integration but handling it with substeps is close enough
@@ -628,7 +634,7 @@ void waypointControl::updateArrivalTiming(const Eigen::Vector3d &cPose)
 			    global_path_msg->pva[waypointCounter].pos.position.x,
 			    global_path_msg->pva[waypointCounter].pos.position.y,
 		        global_path_msg->pva[waypointCounter].pos.position.z
-            ) + arenaCenter;
+            );
 
             this->nextVelocity_ = Eigen::Vector3d(
 		        global_path_msg->pva[waypointCounter].vel.linear.x,
@@ -641,6 +647,15 @@ void waypointControl::updateArrivalTiming(const Eigen::Vector3d &cPose)
 			    global_path_msg->pva[waypointCounter].acc.linear.y,
 			    global_path_msg->pva[waypointCounter].acc.linear.z
             );
+
+            //this could be done without filling the quaternion but this leaves more data for later
+            Eigen::Quaternionf thisQuat;
+            thisQuat.x()=global_path_msg->pva[waypointCounter].pos.orientation.x;
+            thisQuat.y()=global_path_msg->pva[waypointCounter].pos.orientation.y;
+            thisQuat.z()=global_path_msg->pva[waypointCounter].pos.orientation.z;
+            thisQuat.w()=global_path_msg->pva[waypointCounter].pos.orientation.w;
+            this->nextYaw_=atan2(2.0*(thisQuat.w()*thisQuat.z() + thisQuat.x()*thisQuat.y()),
+            		1.0 - 2.0*(thisQuat.y()*thisQuat.y() + thisQuat.z()*thisQuat.z()));
 
 			//if you have the next time, find segment chunks that correspond to it. Otherwise, guesstimate.
 			if(global_path_msg->pva[waypointCounter].header.stamp.toSec() > 1e-4 )
