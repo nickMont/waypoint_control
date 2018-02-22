@@ -261,7 +261,6 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	PVA_Ref_msg.Pos.y = tmp(1);
 	PVA_Ref_msg.Pos.z = tmp(2);
 
-	/*
 	tmp = nextVelocity_ - substep * (nextVelocity_ - oldVelocity_);
 	PVA_Ref_msg.Vel.x=tmp(0);
 	PVA_Ref_msg.Vel.y=tmp(1);
@@ -272,14 +271,15 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	PVA_Ref_msg.Acc.x = kf_ff(0)*tmp(0);
 	PVA_Ref_msg.Acc.y = kf_ff(1)*tmp(1);
 	PVA_Ref_msg.Acc.z = kf_ff(2)*tmp(2);
-	*/
-
+	
+	/*
 	PVA_Ref_msg.Vel.x=0;
 	PVA_Ref_msg.Vel.y=0;
 	PVA_Ref_msg.Vel.z=0;
 	PVA_Ref_msg.Acc.x=0;
 	PVA_Ref_msg.Acc.y=0;
 	PVA_Ref_msg.Acc.z=0;
+	*/
 
 
 /*
@@ -691,9 +691,6 @@ void waypointControl::updateArrivalTiming(const Eigen::Vector3d &cPose)
 		}
 	}
 }
-
-
-
 
 
 

@@ -2,17 +2,18 @@
   <node pkg="waypoint_control"
     type="waypoint_control"
     name="waypoint_control_node"
-    output="screen">
+    output="screen"
+    ns="phoenix">
 
     <param name="defaultMode" value="hover"/> <!-- either goes to "hover" or "aggressive" mode by default. -->
 
     <!-- Misc parameters -->
     <param name="quadName" type="string" value="Valkyrie"/>
-    <param name="quadPoseTopic" type="string" value="phoenix/local_odom"/>
-    <param name="quadWaypointTopic" type="string" value="Valkyrie/refPose1"/> <!-- topic for single wpts -->
-    <param name="quadWaypointListTopic" type="string" value="phoenix/trajectory"/> <!-- topic for lists of wpts -->
+    <param name="quadPoseTopic" type="string" value="local_odom"/>
+    <param name="quadWaypointTopic" type="string" value="refPose1"/> <!-- topic for single wpts -->
+    <param name="quadWaypointListTopic" type="string" value="trajectory"/> <!-- topic for lists of wpts -->
     <param name="joyTopic" type="string" value="joy"/> <!-- topic for joystick data -->
-    <param name="publishPVA_Topic" type="string" value="phoenix/px4_control/PVA_Ref"/>
+    <param name="publishPVA_Topic" type="string" value="px4_control/PVA_Ref"/>
     <param name="gps_fps" value="20"/>
 
     <!-- Arena parameters -->
@@ -34,8 +35,8 @@
         <!-- Set wptHitDist=0 to enable timing option -->
 
     <!-- PATH FOLLOWING PARAMETERS -->
-    <param name="kpX" value="3.5"/> <!-- 3.8 -->
-    <param name="kpY" value="3.5"/>
+    <param name="kpX" value="2.5"/> <!-- 3.8 -->
+    <param name="kpY" value="2.5"/>
     <param name="kpZ" value="2.1"/>
     <param name="kdX" value="1.4"/> <!-- 1.4 -->
     <param name="kdY" value="1.4"/>
@@ -43,20 +44,20 @@
     <param name="kiX" value="0.2"/>
     <param name="kiY" value="0.2"/>
     <param name="kiZ" value="0.3"/>
-    <param name="kfx" value="0.05"/> <!-- feedforward gains -->
-    <param name="kfy" value="0.05"/>
-    <param name="kfz" value="0.05"/>
+    <param name="kfx" value="1"/> <!-- feedforward gains -->
+    <param name="kfy" value="1"/>
+    <param name="kfz" value="1"/>
     <param name="maxInteg_X" value="1.5"/>
     <param name="maxInteg_Y" value="1.5"/>
     <param name="maxInteg_Z" value="1.5"/>
 
     <!-- TIGHT HOVER PX4_CONTROL PARAMETERS  (this node changes between posMode gains and wptCtrl gains and needs to know all of it to udpate properly) -->
-    <param name="kpX_h" value="3.05"/>
-    <param name="kpY_h" value="3.00"/>
-    <param name="kpZ_h" value="2.25"/>
-    <param name="kdX_h" value="3.40"/>
-    <param name="kdY_h" value="3.45"/>
-    <param name="kdZ_h" value="2.25"/>
+    <param name="kpX_h" value="2.05"/>
+    <param name="kpY_h" value="2.00"/>
+    <param name="kpZ_h" value="1.75"/>
+    <param name="kdX_h" value="1.90"/>
+    <param name="kdY_h" value="1.95"/>
+    <param name="kdZ_h" value="1.25"/>
     <param name="kiX_h" value="0.045"/>
     <param name="kiY_h" value="0.050"/>
     <param name="kiZ_h" value="0.075"/>
