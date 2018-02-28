@@ -18,7 +18,7 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
     errIntegral.setZero();
 
 	// Arena center is takeoff location. +1 meter to ensure takeoff. 
-    this->nextWaypoint_ = this->arenaCenter + Eigen::Vector3d(0, 0, 1);
+    this->nextWaypoint_ = this->arenaCenter + Eigen::Vector3d(0,0,1);
 
 	this->dt_default= 1.0 / this->gpsfps;
 
@@ -349,6 +349,7 @@ void waypointControl::waypointListCallback(const app_pathplanner_interface::PVAT
 	numPathsSoFar++;
 	arrivalModeFlag=0;
 	if(msg) {
+//		std::cout << "Trajectory received";
 		waypointListLen=msg->pva.size();
 		global_path_msg = msg;
 
