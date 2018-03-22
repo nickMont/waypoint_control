@@ -22,6 +22,8 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
 
 	this->dt_default= 1.0 / this->gpsfps;
 
+	PI=std::atan(1.0)*4;
+
 	// Initialize publishers and subscriber
 	//advertise on message topic specified in input file.	USE px4_control/PVA_Ref WITH MARCELINO'S CONTROLLER
 	pvaRef_pub_ = nh.advertise<px4_control::PVA>(publishtopicname, 10);
@@ -215,6 +217,7 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	//uses the PVA message from px4_control package
 	px4_control::PVA PVA_Ref_msg;
 	PVA_Ref_msg.yaw = nextYaw_;	//can try nonzero if optimal
+	std::cout<<nextYaw_<<std::endl;
 	
 	//fill message fields
 	//The proper way to do this is with discrete integration but handling it with substeps is close enough
@@ -595,7 +598,7 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
 			stepCounter = 0;
 
             errIntegral.setZero();
-			ROS_INFO("Waypoint reached, moving to waypoint %f\t%f\t%f",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2));
+			//ROS_INFO("Waypoint reached, moving to waypoint %f\t%f\t%f",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2));
 		}else
 		{
 			if(arrivalModeFlag==0) //only print arrival message once
@@ -657,6 +660,8 @@ void waypointControl::updateArrivalTiming(const Eigen::Vector3d &cPose)
             thisQuat.w()=global_path_msg->pva[waypointCounter].pos.orientation.w;
             this->nextYaw_=atan2(2.0*(thisQuat.w()*thisQuat.z() + thisQuat.x()*thisQuat.y()),
             		1.0 - 2.0*(thisQuat.y()*thisQuat.y() + thisQuat.z()*thisQuat.z()));
+            if(this->nextYaw_<0)
+            	{this->nextYaw_=this->nextYaw_+2*PI;}
 
 			//if you have the next time, find segment chunks that correspond to it. Otherwise, guesstimate.
 			if(global_path_msg->pva[waypointCounter].header.stamp.toSec() > 1e-4 )
@@ -675,7 +680,7 @@ void waypointControl::updateArrivalTiming(const Eigen::Vector3d &cPose)
 
             errIntegral.setZero();
             //print status
-            ROS_INFO("Waypoint time reached, moving to waypoint %f\t%f\t%f in %d steps",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2), stepsToNextWaypoint);
+            //ROS_INFO("Waypoint time reached, moving to waypoint %f\t%f\t%f in %d steps",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2), stepsToNextWaypoint);
 		}else
 		{
 			if(arrivalModeFlag==0) //only print arrival message once

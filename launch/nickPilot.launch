@@ -35,9 +35,9 @@
         <!-- Set wptHitDist=0 to enable timing option -->
 
     <!-- PATH FOLLOWING PARAMETERS -->
-    <param name="kpX" value="1.6"/> <!-- 3.8 -->
-    <param name="kpY" value="1.6"/>
-    <param name="kpZ" value="1.2"/>
+    <param name="kpX" value="0.8"/> <!-- 3.8 -->
+    <param name="kpY" value="0.8"/>
+    <param name="kpZ" value="1.1"/>
     <param name="kdX" value="0.15"/> <!-- 1.4 -->
     <param name="kdY" value="0.15"/>
     <param name="kdZ" value="0.25"/>
