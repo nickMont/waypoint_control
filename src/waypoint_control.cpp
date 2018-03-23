@@ -17,9 +17,6 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
 
     errIntegral.setZero();
 
-	// Arena center is takeoff location. +1 meter to ensure takeoff. 
-    this->nextWaypoint_ = this->arenaCenter + Eigen::Vector3d(0,0,1);
-
 	this->dt_default= 1.0 / this->gpsfps;
 
 	PI=std::atan(1.0)*4;
@@ -43,6 +40,11 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
 //	next_wpt(0)=initPose_->pose.pose.position.x;
 //	next_wpt(1)=initPose_->pose.pose.position.y;
 //	next_wpt(2)=initPose_->pose.pose.position.z+1; //1m above initial pose
+	// Go to 0,0,1 
+	//this->nextWaypoint_ = this->arenaCenter + Eigen::Vector3d(0,0,1);
+	// Go to 1m above initPose
+	this->nextWaypoint_ = this->arenaCenter + Eigen::Vector3d(0,0,1) +
+		Eigen::Vector3d(initPose_->pose.pose.position.x, initPose_->pose.pose.position.y, initPose_->pose.pose.position.z);
 }
 
 void waypointControl::readROSParameters() 
@@ -107,12 +109,7 @@ void waypointControl::readROSParameters()
 	ros::param::get("waypoint_control_node/maxInteg_Z_h", eImax_hov(2));
 
 	// Safety parameters. Only currently in use to make intermediate points when initalizing
-	ros::param::get("waypoint_control_node/vx_max", vmax(0));
-	ros::param::get("waypoint_control_node/vy_max", vmax(1));
-	ros::param::get("waypoint_control_node/vz_max", vmax(2));
-	ros::param::get("waypoint_control_node/ax_max", max_accel(0));
-	ros::param::get("waypoint_control_node/ay_max", max_accel(1));
-	ros::param::get("waypoint_control_node/az_max", max_accel(2));
+	ros::param::get("waypoint_control_node/accel_max", max_accel);
 
 	// misc parameters
 	ros::param::get("waypoint_control_node/gps_fps", gpsfps);
@@ -131,6 +128,9 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	//static ros::Time t_last_proc = msg->header.stamp;
 	//double dt = (msg->header.stamp - t_last_proc).toSec();
 	//t_last_proc = msg->header.stamp;
+	static const Eigen::Vector3d initLocationVec =
+			Eigen::Vector3d(initPose_->pose.pose.position.x, initPose_->pose.pose.position.y,
+			initPose_->pose.pose.position.z);
 
 	//PID3 structure can also be used here
     this->currentPose_ = Eigen::Vector3d(
@@ -158,7 +158,7 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
     	{vmaxToUse=vmax_for_timing;}
     	else{vmaxToUse=vmax_real;}
 
-    	if(hitDist>0.001)
+    	if(hitDist>1e-2)
     	{
 			checkArrival(currentPose_);
 		}else{
@@ -189,11 +189,13 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 		{
 			substep=1;
 		}
+		//ROS_INFO("Substep: %f",substep);
 	}else  //if no message has been received
 	{
 		//set next wpt to be stationary at arena center
-		nextWaypoint_=arenaCenter; //desired init pose
-		//nextWaypoint_(2)=arenaCenter(2) + 1; //behavior of "take off and hover at 1m" REMOVED
+		//nextWaypoint_=arenaCenter; //desired init pose
+		//nextWaypoint_(2)=arenaCenter(2) + 1; //behavior of "take off and hover at 1m"
+		nextWaypoint_ = initLocationVec+Eigen::Vector3d(0,0,1);
 		nextVelocity_.setZero();
 		nextAcceleration_.setZero();
 		oldPose_=currentPose_;
@@ -211,13 +213,13 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 		{
 			substep=0;
 		}
-//		ROS_INFO("Substep: %f",substep);
+		//ROS_INFO("Substep: %f",substep);
 	}
 
 	//uses the PVA message from px4_control package
 	px4_control::PVA PVA_Ref_msg;
 	PVA_Ref_msg.yaw = nextYaw_;	//can try nonzero if optimal
-	std::cout<<nextYaw_<<std::endl;
+//	std::cout<<nextYaw_<<std::endl;
 	
 	//fill message fields
 	//The proper way to do this is with discrete integration but handling it with substeps is close enough
@@ -265,12 +267,16 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 	PVA_Ref_msg.Pos.z = tmp(2);
 
 	tmp = nextVelocity_ - substep * (nextVelocity_ - oldVelocity_);
+	if(tmp.norm()>vmax_for_timing)
+	{tmp=tmp*vmax_for_timing/tmp.norm();}
 	PVA_Ref_msg.Vel.x=tmp(0);
 	PVA_Ref_msg.Vel.y=tmp(1);
 	PVA_Ref_msg.Vel.z=tmp(2);
 
 	//px4_control uses accelerations for full FF reference
 	tmp = (nextAcceleration_ - substep * (nextAcceleration_ - oldAcceleration_));
+	if(tmp.norm()>max_accel)
+	{tmp=tmp*max_accel/tmp.norm();}
 	PVA_Ref_msg.Acc.x = kf_ff(0)*tmp(0);
 	PVA_Ref_msg.Acc.y = kf_ff(1)*tmp(1);
 	PVA_Ref_msg.Acc.z = kf_ff(2)*tmp(2);
@@ -393,8 +399,9 @@ void waypointControl::waypointListCallback(const app_pathplanner_interface::PVAT
 //		ROS_INFO("dtx %f  dty %f  dtz %f  problemelement %f",dt(0),dt(1),dt(2),nextWaypoint_(2)-currentPose_(2));
 
 		//print update to user
-		ROS_INFO("Moving to waypoint %f %f %f in %d steps", nextWaypoint_(0),
-					nextWaypoint_(1), nextWaypoint_(2), stepsToNextWaypoint);
+		//ROS_INFO("Moving to waypoint %f %f %f in %d steps", nextWaypoint_(0),
+		//			nextWaypoint_(1), nextWaypoint_(2), stepsToNextWaypoint);
+		ROS_INFO("Trajectory received.");
 	}
     else
 	{
@@ -501,7 +508,7 @@ Eigen::Vector3d waypointControl::vectorSaturationF(Eigen::Vector3d &vec1, const 
 
 void waypointControl::limitAcceleration(const Eigen::Vector3d &vv, Eigen::Vector3d &uu)
 {
-	Eigen::Vector3d velWithAccel;
+	/*Eigen::Vector3d velWithAccel;
 	double aCheck;
 	velWithAccel=vv+dt_default*uu;
 
@@ -531,7 +538,7 @@ void waypointControl::limitAcceleration(const Eigen::Vector3d &vv, Eigen::Vector
 				uu(i) = aCheck; //don't unnecessarily limit acceleration
 			}
 		} //else //all good
-	}
+	}*/
 }
 
 
@@ -598,7 +605,7 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
 			stepCounter = 0;
 
             errIntegral.setZero();
-			//ROS_INFO("Waypoint reached, moving to waypoint %f\t%f\t%f",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2));
+			ROS_INFO("Waypoint reached, moving to waypoint %f\t%f\t%f",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2));
 		}else
 		{
 			if(arrivalModeFlag==0) //only print arrival message once
@@ -673,7 +680,7 @@ void waypointControl::updateArrivalTiming(const Eigen::Vector3d &cPose)
             else
 			{
 				//guesstimate timing
-                this->dtNextWaypoint =  ((nextWaypoint_ - cPose).cwiseQuotient(vmax)).lpNorm<Eigen::Infinity>();
+                this->dtNextWaypoint =  ((nextWaypoint_ - cPose)/vmax_for_timing).lpNorm<Eigen::Infinity>();
 			}
 			stepsToNextWaypoint = ceil(dtNextWaypoint/dt_default);
 			stepCounter = 0;

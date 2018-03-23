@@ -68,10 +68,10 @@ private:
 	int counter, waypointListLen, waypointCounter, numPathsSoFar, stepsToNextWaypoint, stepCounter,
         arrivalModeFlag;
 	double waypointTime, poseTime, gpsfps, hitDist, dt_default, t0, dtNextWaypoint,
-            vmax_for_timing, vmax_real, quadMass, nextYaw_, PI;
+            vmax_for_timing, vmax_real, quadMass, nextYaw_, PI, max_accel;
     
 	//using Eigen when std::vector could be used instead in case we want to do matrix calcs with this stuff
-	Eigen::Vector3d errIntegral, vmax, max_accel, arenaCenter, nextWaypoint_, uPID;
+	Eigen::Vector3d errIntegral, vmax, arenaCenter, nextWaypoint_, uPID;
 
     /* PID Parameters */
     Eigen::Vector3d kp, kd, ki, eImax, kp_pos, kd_pos, ki_pos, eImax_pos, kf_ff, kp_hov, kd_hov, ki_hov, eImax_hov;

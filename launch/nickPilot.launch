@@ -19,18 +19,13 @@
     <!-- Arena parameters -->
     <param name="xCenter" value="0.0"/> <!-- home position to take off to -->
     <param name="yCenter" value="0.0"/>
-    <param name="zCenter" value="1.0"/>
+    <param name="zCenter" value="0.0"/>
     <!-- NOTE: gps_kf sets initial pose/vel to 0 -->
 
     <!-- Safety params -->
-    <param name="vx_max" value="0.5"/>
-    <param name="vy_max" value="0.5"/>
-    <param name="vz_max" value="0.5"/>
-    <param name="ax_max" value="0.5"/>
-    <param name="ay_max" value="0.5"/>
-    <param name="az_max" value="2"/>
+    <param name="accel_max" value="10"/>
     <param name="vmax_for_timing" value="40"/> <!--Used for coarse timing/takeoff/etc -->
-    <param name="vmax_real" value="100"/> <!-- Used to determine need for intermediate waypoints -->
+    <param name="vmax_real" value="10"/> <!-- Used to determine need for intermediate waypoints -->
     <param name="waypointHitDist" value="0.0"/> <!-- Must be this close to record passage through wpt -->
         <!-- Set wptHitDist=0 to enable timing option -->
 
