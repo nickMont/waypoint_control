@@ -12,8 +12,8 @@
 #include <px4_control/PVA.h>
 #include <px4_control/updatePx4param.h>
 //#include <px4_control/srv/updatePx4param.srv>
-#include <app_pathplanner_interface/PVATrajectory.h>
-#include <app_pathplanner_interface/PVA_Stamped.h>
+#include <mg_msgs/PVATrajectory.h>
+#include <mg_msgs/PVA_Stamped.h>
 
 class waypointControl
 {
@@ -41,7 +41,7 @@ public:
     /**
     * Callback called when a path of waypoints is published. Takes the first element in the list and assigns it to be the next goal position.
     */
-	void waypointListCallback(const app_pathplanner_interface::PVATrajectory::ConstPtr &msg);
+	void waypointListCallback(const mg_msgs::PVATrajectory::ConstPtr &msg);
 
     /**
     * Caps xval between +- satBound
@@ -87,6 +87,6 @@ private:
 
 	std::string quadPoseTopic, quadWaypointTopic, publishtopicname, quadWaypointListTopic,
 							quadVelListTopic, quadAccListTopic, joyTopic, default_mode;
-	app_pathplanner_interface::PVATrajectory::ConstPtr global_path_msg;
+	mg_msgs::PVATrajectory::ConstPtr global_path_msg;
 };
 

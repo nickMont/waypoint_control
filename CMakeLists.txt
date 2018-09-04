@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
 	std_msgs
 	message_generation
 	cmake_modules
-	app_pathplanner_interface
+	mg_msgs
 	px4_control
 )
 
@@ -37,7 +37,7 @@ catkin_package(
 	DEPENDS Eigen
 	INCLUDE_DIRS include
 	LIBRARIES waypointControl
-	CATKIN_DEPENDS geometry_msgs nav_msgs roscpp std_msgs visualization_msgs app_pathplanner_interface
+	CATKIN_DEPENDS geometry_msgs nav_msgs roscpp std_msgs visualization_msgs mg_msgs
 	DEPENDS system_lib
 )
 

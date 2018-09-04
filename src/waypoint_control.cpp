@@ -352,7 +352,7 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 }
 
 
-void waypointControl::waypointListCallback(const app_pathplanner_interface::PVATrajectory::ConstPtr &msg)
+void waypointControl::waypointListCallback(const mg_msgs::PVATrajectory::ConstPtr &msg)
 {
 	//int nn= ;//length of pose list
 	numPathsSoFar++;
