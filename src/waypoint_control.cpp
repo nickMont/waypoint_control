@@ -37,6 +37,9 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
 	ROS_INFO("Waiting for first position measurement...");
 	initPose_ = ros::topic::waitForMessage<nav_msgs::Odometry>(quadPoseTopic);
 	ROS_INFO("Initial position: %f\t%f\t%f", initPose_->pose.pose.position.x, initPose_->pose.pose.position.y, initPose_->pose.pose.position.z);
+
+	timerPub_ = nh.createTimer(ros::Duration(1.0/pubRate_), &waypointControl::timerCallback, this, false);
+
 //	next_wpt(0)=initPose_->pose.pose.position.x;
 //	next_wpt(1)=initPose_->pose.pose.position.y;
 //	next_wpt(2)=initPose_->pose.pose.position.z+1; //1m above initial pose
@@ -47,6 +50,7 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
 		Eigen::Vector3d(initPose_->pose.pose.position.x, initPose_->pose.pose.position.y, initPose_->pose.pose.position.z);
 }
 
+
 void waypointControl::readROSParameters() 
 {
     // Topic names
@@ -56,6 +60,7 @@ void waypointControl::readROSParameters()
 	ros::param::get("waypoint_control_node/joyTopic", joyTopic);
 	ros::param::get("waypoint_control_node/publishPVA_Topic", publishtopicname);
 	ros::param::get("waypoint_control_node/defaultMode",default_mode);
+	ros::param::get("waypoint_control_node/pubRate", pubRate_);
 
 	//confirm that parameters were read correctly
 	ROS_INFO("Preparing pose subscriber on channel %s",quadPoseTopic.c_str());
@@ -122,7 +127,14 @@ void waypointControl::readROSParameters()
 
 }
 
+
 void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
+{
+	odomMsg_ = msg;
+}
+
+
+void waypointControl::timerCallback(const ros::TimerEvent &event)
 { //Sends PVA_Ref based on current PVA when received
 	//Send new PVA when new KFPose received
 	//static ros::Time t_last_proc = msg->header.stamp;
@@ -134,15 +146,15 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
 	//PID3 structure can also be used here
     this->currentPose_ = Eigen::Vector3d(
-	    msg->pose.pose.position.x,
-	    msg->pose.pose.position.y,
-	    msg->pose.pose.position.z
+	    odomMsg_->pose.pose.position.x,
+	    odomMsg_->pose.pose.position.y,
+	    odomMsg_->pose.pose.position.z
     );
 
     this->currentVelocity_ = Eigen::Vector3d(
-	    msg->twist.twist.linear.x,
-	    msg->twist.twist.linear.y,
-	    msg->twist.twist.linear.z
+	    odomMsg_->twist.twist.linear.x,
+	    odomMsg_->twist.twist.linear.y,
+	    odomMsg_->twist.twist.linear.z
     );
 
 

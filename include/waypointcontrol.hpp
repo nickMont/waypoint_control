@@ -43,6 +43,10 @@ public:
     */
 	void waypointListCallback(const mg_msgs::PVATrajectory::ConstPtr &msg);
 
+    //Actually publishes points
+    void timerCallback(const ros::TimerEvent &event);
+
+
     /**
     * Caps xval between +- satBound
     */
@@ -62,13 +66,14 @@ private:
 	ros::Publisher pvaRef_pub_;
 	ros::Subscriber waypoint_sub_, joy_sub_, pose_sub_, waypointList_sub_, waypointVelList_sub_, waypointAccList_sub_;
     ros::ServiceClient controlParamUpdate; 
+    ros::Timer timerPub_;
 
-	nav_msgs::Odometry::ConstPtr initPose_;
+	nav_msgs::Odometry::ConstPtr initPose_, odomMsg_;
 	geometry_msgs::PoseStamped::ConstPtr initWaypoint_;
 	int counter, waypointListLen, waypointCounter, numPathsSoFar, stepsToNextWaypoint, stepCounter,
         arrivalModeFlag;
 	double waypointTime, poseTime, gpsfps, hitDist, dt_default, t0, dtNextWaypoint,
-            vmax_for_timing, vmax_real, quadMass, nextYaw_, PI, max_accel;
+            vmax_for_timing, vmax_real, quadMass, nextYaw_, PI, max_accel, pubRate_;
     
 	//using Eigen when std::vector could be used instead in case we want to do matrix calcs with this stuff
 	Eigen::Vector3d errIntegral, vmax, arenaCenter, nextWaypoint_, uPID;
