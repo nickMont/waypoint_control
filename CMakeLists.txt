@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
 	cmake_modules
 	mg_msgs
 )
+find_package(Eigen REQUIRED)
 
 catkin_package(
 	DEPENDS Eigen

@@ -23,12 +23,11 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
 
 	// Initialize publishers and subscriber
 	//advertise on message topic specified in input file.	USE px4_control/PVA_Ref WITH MARCELINO'S CONTROLLER
-	pvaRef_pub_ = nh.advertise<px4_control::PVA>(publishtopicname, 10);
+	pvaRef_pub_ = nh.advertise<mg_msgs::PVA>(publishtopicname, 10);
 	ROS_INFO("Publisher created on topic %s",publishtopicname.c_str());
 	pose_sub_ = nh.subscribe(quadPoseTopic, 10, &waypointControl::poseCallback, this, ros::TransportHints().tcpNoDelay());
 	waypoint_sub_ = nh.subscribe(quadWaypointTopic,10,&waypointControl::waypointCallback, this, ros::TransportHints().tcpNoDelay());
 	waypointList_sub_ = nh.subscribe(quadWaypointListTopic,10,&waypointControl::waypointListCallback, this, ros::TransportHints().tcpNoDelay());
-	controlParamUpdate = nh.serviceClient<px4_control::updatePx4param>("/px4_control_node/updatePosControlParam");
 	ROS_INFO("Subscribers created.");
 	ROS_INFO("REMEMBER TO CHANGE TO LOCAL POSE MODE");
 
