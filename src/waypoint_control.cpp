@@ -28,7 +28,6 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
 	pose_sub_ = nh.subscribe(quadPoseTopic, 10, &waypointControl::poseCallback, this, ros::TransportHints().tcpNoDelay());
 	waypoint_sub_ = nh.subscribe(quadWaypointTopic,10,&waypointControl::waypointCallback, this, ros::TransportHints().tcpNoDelay());
 	waypointList_sub_ = nh.subscribe(quadWaypointListTopic,10,&waypointControl::waypointListCallback, this, ros::TransportHints().tcpNoDelay());
-	joy_sub_ = nh.subscribe(joyTopic,10,&waypointControl::joyCallback, this, ros::TransportHints().tcpNoDelay());
 	controlParamUpdate = nh.serviceClient<px4_control::updatePx4param>("/px4_control_node/updatePosControlParam");
 	ROS_INFO("Subscribers created.");
 	ROS_INFO("REMEMBER TO CHANGE TO LOCAL POSE MODE");
@@ -229,7 +228,7 @@ void waypointControl::timerCallback(const ros::TimerEvent &event)
 	}
 
 	//uses the PVA message from px4_control package
-	px4_control::PVA PVA_Ref_msg;
+	mg_msgs::PVA PVA_Ref_msg;
 	PVA_Ref_msg.yaw = nextYaw_;	//can try nonzero if optimal
 //	std::cout<<nextYaw_<<std::endl;
 	
@@ -418,54 +417,6 @@ void waypointControl::waypointListCallback(const mg_msgs::PVATrajectory::ConstPt
     else
 	{
 		nextWaypoint_=currentPose_;
-	}
-}
-
-
-void waypointControl::joyCallback(const sensor_msgs::Joy &msg)
-{
-	if(msg.buttons[1]==1) //pressed B
-	{
-		//ROS_INFO("service called");
-		px4_control::updatePx4param param_srv;
-		param_srv.request.data.resize(10);
-		param_srv.request.data={kp(0),kp(1),kp(2),kd(0),kd(1),kd(2),ki(0),ki(1),ki(2),
-			eImax(0),eImax(1),eImax(2)};
-		controlParamUpdate.call(param_srv);
-		
-	}else if(msg.buttons[2]==1)  //pressed X
-	{
-		if(default_mode.compare("aggressive")==0)
-		{
-			//ROS_INFO("service called");
-			px4_control::updatePx4param param_srv;
-			param_srv.request.data.resize(10);
-			param_srv.request.data={kp_pos(0),kp_pos(1),kp_pos(2),kd_pos(0),kd_pos(1),kd_pos(2),
-				ki_pos(0),ki_pos(1),ki_pos(2),eImax_pos(0),eImax_pos(1),eImax_pos(2)};
-			controlParamUpdate.call(param_srv);
-		}else
-		{
-			px4_control::updatePx4param param_srv;
-			param_srv.request.data.resize(10);
-			param_srv.request.data={kp_hov(0),kp_hov(1),kp_hov(2),kd_hov(0),kd_hov(1),kd_hov(2),
-				ki_hov(0),ki_hov(1),ki_hov(2),eImax_hov(0),eImax_hov(1),eImax_hov(2)};
-			controlParamUpdate.call(param_srv);
-		}
-	}else if(msg.axes[7]>=0.9) //pressed UP on dpad
-	{
-		px4_control::updatePx4param param_srv;
-		param_srv.request.data.resize(10);
-		param_srv.request.data={kp_hov(0),kp_hov(1),kp_hov(2),kd_hov(0),kd_hov(1),kd_hov(2),
-			ki_hov(0),ki_hov(1),ki_hov(2),eImax_hov(0),eImax_hov(1),eImax_hov(2)};
-		controlParamUpdate.call(param_srv);
-	}else if(msg.axes[7]<=-0.9) //pressed DOWN on dpad
-	{
-		//ROS_INFO("service called");
-		px4_control::updatePx4param param_srv;
-		param_srv.request.data.resize(10);
-		param_srv.request.data={kp_pos(0),kp_pos(1),kp_pos(2),kd_pos(0),kd_pos(1),kd_pos(2),
-			ki_pos(0),ki_pos(1),ki_pos(2),eImax_pos(0),eImax_pos(1),eImax_pos(2)};
-		controlParamUpdate.call(param_srv);
 	}
 }
 

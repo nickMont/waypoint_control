@@ -9,11 +9,10 @@
 #include <Eigen/Geometry>
 #include <string>
 #include <iostream>
-#include <px4_control/PVA.h>
-#include <px4_control/updatePx4param.h>
 //#include <px4_control/srv/updatePx4param.srv>
 #include <mg_msgs/PVATrajectory.h>
 #include <mg_msgs/PVA_Stamped.h>
+#include <mg_msgs/PVA.h>
 
 class waypointControl
 {
@@ -23,11 +22,7 @@ public:
     * Constructor.
     */
 	waypointControl(ros::NodeHandle &nh);
-
-    /**
-    * Callback that resets control param when joy mode changes
-    */
-    void joyCallback(const sensor_msgs::Joy &msg);
+    
     /** 
     * Callback called whenever a pose message is published from the state estimator topic 
     */

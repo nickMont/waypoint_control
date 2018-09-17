@@ -15,11 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
 	message_generation
 	cmake_modules
 	mg_msgs
-	px4_control
 )
-
-find_package(Eigen REQUIRED
-	px4_control)
 
 catkin_package(
 	DEPENDS Eigen
