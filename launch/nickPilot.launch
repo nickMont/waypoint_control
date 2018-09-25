@@ -9,7 +9,7 @@
 
     <!-- Misc parameters -->
     <param name="quadName" type="string" value="hippogriff"/>
-    <param name="quadPoseTopic" type="string" value="local_odom"/>
+    <param name="quadPoseTopic" type="string" value="ENU/local_odom"/>
     <param name="quadWaypointTopic" type="string" value="refPose1"/> <!-- topic for single wpts -->
     <param name="quadWaypointListTopic" type="string" value="/phoenix/trajectory"/> <!-- topic for lists of wpts -->
     <param name="joyTopic" type="string" value="joy"/> <!-- topic for joystick data -->
