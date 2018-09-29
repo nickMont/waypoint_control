@@ -1,9 +1,10 @@
 <launch>
+  <arg name="quad_namespace"/>
   <node pkg="waypoint_control"
     type="waypoint_control"
     name="waypoint_control_node"
     output="screen"
-    ns="phoenix">
+    ns="$(arg quad_namespace)">
 
     <param name="defaultMode" value="hover"/> <!-- either goes to "hover" or "aggressive" mode by default. -->
 
