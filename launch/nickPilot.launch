@@ -9,8 +9,8 @@
     <param name="defaultMode" value="hover"/> <!-- either goes to "hover" or "aggressive" mode by default. -->
 
     <!-- Misc parameters -->
-    <param name="quadName" type="string" value="hippogriff"/>
-    <param name="quadPoseTopic" type="string" value="ENU/local_odom"/>
+    <param name="quadName" type="string" value="phoenix"/>
+    <param name="quadPoseTopic" type="string" value="WRW/local_odom"/>
     <param name="quadWaypointTopic" type="string" value="refPose1"/> <!-- topic for single wpts -->
     <param name="quadWaypointListTopic" type="string" value="/phoenix/trajectory"/> <!-- topic for lists of wpts -->
     <param name="joyTopic" type="string" value="joy"/> <!-- topic for joystick data -->
@@ -25,9 +25,9 @@
     <!-- NOTE: gps_kf sets initial pose/vel to 0 -->
 
     <!-- Safety params -->
-    <param name="accel_max" value="10"/>
-    <param name="vmax_for_timing" value="40"/> <!--Used for coarse timing/takeoff/etc -->
-    <param name="vmax_real" value="10"/> <!-- Used to determine need for intermediate waypoints -->
+    <param name="accel_max" value="1000"/>
+    <param name="vmax_for_timing" value="1000"/> <!--Used for coarse timing/takeoff/etc -->
+    <param name="vmax_real" value="1000"/> <!-- Used to determine need for intermediate waypoints -->
     <param name="waypointHitDist" value="0.0"/> <!-- Must be this close to record passage through wpt -->
         <!-- Set wptHitDist=0 to enable timing option -->
 
