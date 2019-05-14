@@ -133,11 +133,12 @@ void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
 
 void waypointControl::timerCallback(const ros::TimerEvent &event)
-{ //Sends PVA_Ref based on current PVA when received
-	//Send new PVA when new KFPose received
-	//static ros::Time t_last_proc = msg->header.stamp;
-	//double dt = (msg->header.stamp - t_last_proc).toSec();
-	//t_last_proc = msg->header.stamp;
+{ 
+	double tcurr = (ros::Time::now()).toSec();
+	if(tcurr - t_thispt > dt_nextpt)
+	{
+
+
 	static const Eigen::Vector3d initLocationVec =
 			Eigen::Vector3d(initPose_->pose.pose.position.x, initPose_->pose.pose.position.y,
 			initPose_->pose.pose.position.z);
@@ -235,38 +236,6 @@ void waypointControl::timerCallback(const ros::TimerEvent &event)
 	//The proper way to do this is with discrete integration but handling it with substeps is close enough
     Eigen::Vector3d tmp, tmp2, uPID;
 
-/*
-    //Uses PID controller unique to waypoint_control
-    PVA_Ref_msg.Pos.x = currentPose_(0); //send errors of 0 to px4_control, handle everything via feedforward
-    PVA_Ref_msg.Pos.y = currentPose_(1);
-    PVA_Ref_msg.Pos.z = currentPose_(2);
-    PVA_Ref_msg.Vel.x = currentVelocity_(0); //send 0 error
-    PVA_Ref_msg.Vel.y = currentVelocity_(1);
-    PVA_Ref_msg.Vel.z = currentVelocity_(2);
-
-    //tmp refers to e, edot for this controller
-    tmp = (nextWaypoint_ - substep * (nextWaypoint_ - oldPose_)) - currentPose_;
-    errIntegral = errIntegral + dt_default*tmp;
-    errIntegral = vectorSaturationF(errIntegral, eImax);
-    tmp2 = -1.0*currentVelocity_;
-    //construct PID to send via FF
-    uPID = (1.0/quadMass)*(kp.cwiseProduct(tmp) + kd.cwiseProduct(tmp2) + ki.cwiseProduct(errIntegral));
-    uPID = vectorSaturationF(uPID,max_accel);
-    //note: px4_control multiplies FF by mass but does not multiply PID by mass so we have to cancel it.
-    PVA_Ref_msg.Acc.x = uPID(0);
-    PVA_Ref_msg.Acc.y = uPID(1);
-    PVA_Ref_msg.Acc.z = uPID(2);
-*/
-
-
-/*
-	//Proper feedforward terms with valid references.  Does not handle noise well.
-    tmp = nextVelocity_ - substep * (nextVelocity_ - oldVelocity_);
-	PVA_Ref_msg.Vel.x = tmp(0);
-	PVA_Ref_msg.Vel.y = tmp(1);
-	PVA_Ref_msg.Vel.z = tmp(2);
-*/
-
 
 	//Working code that uses the underlying PID in px4_control.
 	tmp = nextWaypoint_ - substep * (nextWaypoint_ - oldPose_);
@@ -291,85 +260,22 @@ void waypointControl::timerCallback(const ros::TimerEvent &event)
 	PVA_Ref_msg.Acc.y = kf_ff(1)*tmp(1);
 	PVA_Ref_msg.Acc.z = kf_ff(2)*tmp(2);
 	
-	/*
-	PVA_Ref_msg.Vel.x=0;
-	PVA_Ref_msg.Vel.y=0;
-	PVA_Ref_msg.Vel.z=0;
-	PVA_Ref_msg.Acc.x=0;
-	PVA_Ref_msg.Acc.y=0;
-	PVA_Ref_msg.Acc.z=0;
-	*/
-
-
-/*
-	//Discrete time optimal FF gain (too aggressive for stochastic use)
-	Eigen::MatrixXd A_tr(6,6), Hx(3,6), B_tr(6,3), K_tr(3,6), eye6(6,6), N_tr(3,3);
-	A_tr=Eigen::MatrixXd::Identity(6,6);
-	A_tr.topRightCorner(3, 3) = dt_default*Eigen::MatrixXd::Identity(3,3);
-	Hx<<1, 0, 0, 0, 0, 0,
-		0, 1, 0, 0, 0, 0,
-		0, 0, 1, 0, 0, 0;
-	B_tr<<dt_default, 0, 0,
-		0, dt_default, 0,
-		0, 0, dt_default,
-		dt_default*dt_default/2, 0, 0,
-		0, dt_default*dt_default/2, 0,
-		0, 0, dt_default*dt_default/2;
-	eye6=Eigen::MatrixXd::Identity(6,6);
-	K_tr<<kp(0), 0, 0, kd(0), 0, 0,
-		0, kp(1), 0, 0, kd(1), 0,
-		0, 0, kp(2), 0, 0, kd(2);
-	N_tr = (-Hx*(A_tr - B_tr*K_tr - eye6).inverse()*B_tr).inverse(); 
-	ROS_INFO("%f %f %f \n %f %f %f \n %f %f %f", N_tr(0,0), N_tr(0,1), N_tr(0,2), N_tr(1,0), N_tr(1,1),
-		N_tr(1,2), N_tr(2,0), N_tr(2,1), N_tr(2,2));
-*/
-
-/*
-	//"move" reference to model controller internally
-	//NOTE: MUST DISABLE INTEGRAL ACTION IN px4_control 
-	Eigen::Vector3d aFake, uDes;
-	Eigen::MatrixXd A_tr(6,6), Hx(3,6), xPV(6,1);
-	aFake=nextAcceleration_ - substep * (nextAcceleration_ - oldAcceleration_);
-
-	//fill xPV (full x-state)
-	for(int ij=0; ij<3; ij++)
-	{
-		xPV(ij)=currentPose_(ij);
-		xPV(ij+3)=currentVelocity_(ij);
-	}
-	Hx<<1, 0, 0, 0, 0, 0,
-		0, 1, 0, 0, 0, 0,
-		0, 0, 1, 0, 0, 0;
-
-	A_tr=Eigen::MatrixXd::Identity(6,6);
-	A_tr.topRightCorner(3, 3)    = dt_default*Eigen::MatrixXd::Identity(3,3);
-	tmp = nextWaypoint_ - substep * (nextWaypoint_ - oldPose_);
-	Eigen::Vector3d dx_des=tmp-Hx*A_tr*xPV;  //outputs desired delta_x
-	uDes=(dx_des*2.0/dt_default/dt_default).cwiseQuotient(kp);
-
-	PVA_Ref_msg.Pos.x=currentPose_(0)+uDes(0);
-	PVA_Ref_msg.Pos.y=currentPose_(1)+uDes(1);
-	PVA_Ref_msg.Pos.z=currentPose_(2)+uDes(2);
-	PVA_Ref_msg.Vel.x=currentVelocity_(0);
-	PVA_Ref_msg.Vel.y=currentVelocity_(1);
-	PVA_Ref_msg.Vel.z=currentVelocity_(2);
-	PVA_Ref_msg.Acc.x=aFake(0);
-	PVA_Ref_msg.Acc.y=aFake(1);
-	PVA_Ref_msg.Acc.z=aFake(2);
-*/
 
 	pvaRef_pub_.publish(PVA_Ref_msg);
+	}
 }
 
 
-void waypointControl::waypointListCallback(const mg_msgs::PVATrajectory::ConstPtr &msg)
+void waypointControl::waypointListCallback(const mg_msgs::PVAYStampedTrajectory::ConstPtr &msg)
 {
 	//int nn= ;//length of pose list
 	numPathsSoFar++;
 	arrivalModeFlag=0;
 	if(msg) {
+		dt_nextpt = (global_path_msg->trajectory[1].header.stamp).toSec() - (global_path_msg->trajectory[0].header.stamp).toSec();
+		t_thispt = (ros::Time::now()).toSec();
 //		std::cout << "Trajectory received";
-		waypointListLen=msg->pva.size();
+		waypointListLen=msg->trajectory.size();
 		global_path_msg = msg;
 
 		//initialize waypoint counter
@@ -384,23 +290,23 @@ void waypointControl::waypointListCallback(const mg_msgs::PVATrajectory::ConstPt
 		//reset PID params
         errIntegral.setZero();
 
-		//get next waypoint PVA from list
+		//get next waypoint trajectory from list
         nextWaypoint_ = Eigen::Vector3d(
-		    global_path_msg->pva[0].pos.position.x,
-		    global_path_msg->pva[0].pos.position.y,
-		    global_path_msg->pva[0].pos.position.z
+		    global_path_msg->trajectory[0].pos.x,
+		    global_path_msg->trajectory[0].pos.y,
+		    global_path_msg->trajectory[0].pos.z
         );
 
         nextVelocity_ = Eigen::Vector3d(
-		    global_path_msg->pva[0].vel.linear.x,
-		    global_path_msg->pva[0].vel.linear.y,
-		    global_path_msg->pva[0].vel.linear.z
+		    global_path_msg->trajectory[0].vel.linear.x,
+		    global_path_msg->trajectory[0].vel.linear.y,
+		    global_path_msg->trajectory[0].vel.linear.z
         );
 
         nextAcceleration_ = Eigen::Vector3d(
-		    global_path_msg->pva[0].acc.linear.x,
-		    global_path_msg->pva[0].acc.linear.y,
-		    global_path_msg->pva[0].acc.linear.z
+		    global_path_msg->trajectory[0].acc.linear.x,
+		    global_path_msg->trajectory[0].acc.linear.y,
+		    global_path_msg->trajectory[0].acc.linear.z
         );
 
 		//estimated steps to next waypoint
@@ -469,39 +375,7 @@ Eigen::Vector3d waypointControl::vectorSaturationF(Eigen::Vector3d &vec1, const 
 
 
 void waypointControl::limitAcceleration(const Eigen::Vector3d &vv, Eigen::Vector3d &uu)
-{
-	/*Eigen::Vector3d velWithAccel;
-	double aCheck;
-	velWithAccel=vv+dt_default*uu;
-
-	for(int i=0; i<3; i++)
-	{
-		if(velWithAccel(i) > vmax(i)) //handles positive rel speed
-		{
-			aCheck = (vmax(i) - velWithAccel(i)) / dt_default;
-			if(abs(aCheck) > max_accel(i))
-			{
-				uu(i) = abs(aCheck) / aCheck * max_accel(i); //sign(a) * a_max
-			}
-            else
-			{
-				uu(i) = aCheck; //do not use limit if unnecessary
-			}
-		}
-        else if(velWithAccel(i) < -vmax(i)) //handles negative rel speed
-		{
-			aCheck = (-vmax(i) - velWithAccel(i)) / dt_default;
-			if(abs(aCheck) > max_accel(i))
-			{
-				uu(i) = abs(aCheck) / aCheck * max_accel(i); //sign(a) * a_max
-			}
-            else
-			{
-				uu(i) = aCheck; //don't unnecessarily limit acceleration
-			}
-		} //else //all good
-	}*/
-}
+{}
 
 
 void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
@@ -509,9 +383,9 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
 	if(!global_path_msg) return;
 
     Eigen::Vector3d thisWaypoint = Eigen::Vector3d( 
-	    global_path_msg->pva[waypointCounter].pos.position.x,
-	    global_path_msg->pva[waypointCounter].pos.position.y,
-	    global_path_msg->pva[waypointCounter].pos.position.z
+	    global_path_msg->trajectory[waypointCounter].pos.x,
+	    global_path_msg->trajectory[waypointCounter].pos.y,
+	    global_path_msg->trajectory[waypointCounter].pos.z
     ) + arenaCenter;
 
     /* BEGIN CHECK THIS */
@@ -522,6 +396,8 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
 //	ROS_INFO("distcurr = %f",thisDist-hitDist);
 	if(thisDist < hitDist)
 	{
+		dt_nextpt = (global_path_msg->trajectory[1].header.stamp).toSec() - (global_path_msg->trajectory[0].header.stamp).toSec();
+		t_thispt = (ros::Time::now()).toSec();		
 //		t0=time0;
 		if(waypointCounter < waypointListLen - 1)
 		{
@@ -534,28 +410,28 @@ void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
 
             /* Update the new waypoint info */
             this->nextWaypoint_ = Eigen::Vector3d(
-			    global_path_msg->pva[waypointCounter].pos.position.x,
-			    global_path_msg->pva[waypointCounter].pos.position.y,
-		        global_path_msg->pva[waypointCounter].pos.position.z
+			    global_path_msg->trajectory[waypointCounter].pos.x,
+			    global_path_msg->trajectory[waypointCounter].pos.y,
+		        global_path_msg->trajectory[waypointCounter].pos.z
             ) + arenaCenter;
 
             this->nextVelocity_ = Eigen::Vector3d(
-		        global_path_msg->pva[waypointCounter].vel.linear.x,
-			    global_path_msg->pva[waypointCounter].vel.linear.y,
-			    global_path_msg->pva[waypointCounter].vel.linear.z
+		        global_path_msg->trajectory[waypointCounter].vel.linear.x,
+			    global_path_msg->trajectory[waypointCounter].vel.linear.y,
+			    global_path_msg->trajectory[waypointCounter].vel.linear.z
             );
 
             this->nextAcceleration_ = Eigen::Vector3d(
-                global_path_msg->pva[waypointCounter].acc.linear.x,
-			    global_path_msg->pva[waypointCounter].acc.linear.y,
-			    global_path_msg->pva[waypointCounter].acc.linear.z
+                global_path_msg->trajectory[waypointCounter].acc.linear.x,
+			    global_path_msg->trajectory[waypointCounter].acc.linear.y,
+			    global_path_msg->trajectory[waypointCounter].acc.linear.z
             );
 
 			//if you have the next time, find segment chunks that correspond to it. Otherwise, guesstimate.
-			if(global_path_msg->pva[waypointCounter].header.stamp.toSec() > 1e-4 )
+			if(global_path_msg->trajectory[waypointCounter].header.stamp.toSec() > 1e-4 )
 			{
-				dtNextWaypoint=(global_path_msg->pva[waypointCounter].header.stamp).toSec() -
-									 (global_path_msg->pva[waypointCounter-1].header.stamp).toSec()
+				dtNextWaypoint=(global_path_msg->trajectory[waypointCounter].header.stamp).toSec() -
+									 (global_path_msg->trajectory[waypointCounter-1].header.stamp).toSec()
 									 -0.001;  //subtracting 0.001 to handle roundoff in minimum snap node			
 			}
             else
@@ -591,7 +467,8 @@ void waypointControl::updateArrivalTiming(const Eigen::Vector3d &cPose)
 
 	if(stepCounter>=stepsToNextWaypoint)
 	{
-
+		dt_nextpt = (global_path_msg->trajectory[1].header.stamp).toSec() - (global_path_msg->trajectory[0].header.stamp).toSec();
+		t_thispt = (ros::Time::now()).toSec();
 		//if not at endpoint
 		if(waypointCounter < waypointListLen - 1)
 		{
@@ -604,39 +481,32 @@ void waypointControl::updateArrivalTiming(const Eigen::Vector3d &cPose)
 
             /* Update the new waypoint info */
             this->nextWaypoint_ = Eigen::Vector3d(
-			    global_path_msg->pva[waypointCounter].pos.position.x,
-			    global_path_msg->pva[waypointCounter].pos.position.y,
-		        global_path_msg->pva[waypointCounter].pos.position.z
+			    global_path_msg->trajectory[waypointCounter].pos.x,
+			    global_path_msg->trajectory[waypointCounter].pos.y,
+		        global_path_msg->trajectory[waypointCounter].pos.z
             );
 
             this->nextVelocity_ = Eigen::Vector3d(
-		        global_path_msg->pva[waypointCounter].vel.linear.x,
-			    global_path_msg->pva[waypointCounter].vel.linear.y,
-			    global_path_msg->pva[waypointCounter].vel.linear.z
+		        global_path_msg->trajectory[waypointCounter].vel.linear.x,
+			    global_path_msg->trajectory[waypointCounter].vel.linear.y,
+			    global_path_msg->trajectory[waypointCounter].vel.linear.z
             );
 
             this->nextAcceleration_ = Eigen::Vector3d(
-                global_path_msg->pva[waypointCounter].acc.linear.x,
-			    global_path_msg->pva[waypointCounter].acc.linear.y,
-			    global_path_msg->pva[waypointCounter].acc.linear.z
+                global_path_msg->trajectory[waypointCounter].acc.linear.x,
+			    global_path_msg->trajectory[waypointCounter].acc.linear.y,
+			    global_path_msg->trajectory[waypointCounter].acc.linear.z
             );
 
-            //this could be done without filling the quaternion but this leaves more data for later
-            Eigen::Quaternionf thisQuat;
-            thisQuat.x()=global_path_msg->pva[waypointCounter].pos.orientation.x;
-            thisQuat.y()=global_path_msg->pva[waypointCounter].pos.orientation.y;
-            thisQuat.z()=global_path_msg->pva[waypointCounter].pos.orientation.z;
-            thisQuat.w()=global_path_msg->pva[waypointCounter].pos.orientation.w;
-            this->nextYaw_=atan2(2.0*(thisQuat.w()*thisQuat.z() + thisQuat.x()*thisQuat.y()),
-            		1.0 - 2.0*(thisQuat.y()*thisQuat.y() + thisQuat.z()*thisQuat.z()));
+            
             if(this->nextYaw_<0)
             	{this->nextYaw_=this->nextYaw_+2*PI;}
 
 			//if you have the next time, find segment chunks that correspond to it. Otherwise, guesstimate.
-			if(global_path_msg->pva[waypointCounter].header.stamp.toSec() > 1e-4 )
+			if(global_path_msg->trajectory[waypointCounter].header.stamp.toSec() > 1e-4 )
 			{
-				dtNextWaypoint=(global_path_msg->pva[waypointCounter].header.stamp).toSec() -
-									 (global_path_msg->pva[waypointCounter-1].header.stamp).toSec()
+				dtNextWaypoint=(global_path_msg->trajectory[waypointCounter].header.stamp).toSec() -
+									 (global_path_msg->trajectory[waypointCounter-1].header.stamp).toSec()
 									 -0.001;  //subtracting 0.001 to handle roundoff in minimum snap node			
 			}
             else

@@ -14,8 +14,8 @@
     <param name="quadWaypointListTopic" type="string" value="/phoenix/trajectory"/> <!-- topic for lists of wpts -->
     <param name="joyTopic" type="string" value="joy"/> <!-- topic for joystick data -->
     <param name="publishPVA_Topic" type="string" value="px4_control/PVA_Ref"/>
-    <param name="gps_fps" value="20"/>
-    <param name="pubRate" value="20"/> <!-- rate in Hz of trajectory message output-->
+    <param name="gps_fps" value="100"/>
+    <param name="pubRate" value="100"/> <!-- rate in Hz of trajectory message output-->
 
     <!-- Arena parameters -->
     <param name="xCenter" value="0.0"/> <!-- home position to take off to -->
@@ -25,7 +25,7 @@
 
     <!-- Safety params -->
     <param name="accel_max" value="10"/>
-    <param name="vmax_for_timing" value="40"/> <!--Used for coarse timing/takeoff/etc -->
+    <param name="vmax_for_timing" value="400"/> <!--Used for coarse timing/takeoff/etc -->
     <param name="vmax_real" value="10"/> <!-- Used to determine need for intermediate waypoints -->
     <param name="waypointHitDist" value="0.0"/> <!-- Must be this close to record passage through wpt -->
         <!-- Set wptHitDist=0 to enable timing option -->

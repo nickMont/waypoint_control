@@ -10,8 +10,8 @@
 #include <string>
 #include <iostream>
 //#include <px4_control/srv/updatePx4param.srv>
-#include <mg_msgs/PVATrajectory.h>
-#include <mg_msgs/PVA_Stamped.h>
+#include <mg_msgs/PVAYStampedTrajectory.h>
+#include <mg_msgs/PVAYStamped.h>
 #include <mg_msgs/PVA.h>
 
 class waypointControl
@@ -36,7 +36,7 @@ public:
     /**
     * Callback called when a path of waypoints is published. Takes the first element in the list and assigns it to be the next goal position.
     */
-	void waypointListCallback(const mg_msgs::PVATrajectory::ConstPtr &msg);
+	void waypointListCallback(const mg_msgs::PVAYStampedTrajectory::ConstPtr &msg);
 
     //Actually publishes points
     void timerCallback(const ros::TimerEvent &event);
@@ -87,6 +87,8 @@ private:
 
 	std::string quadPoseTopic, quadWaypointTopic, publishtopicname, quadWaypointListTopic,
 							quadVelListTopic, quadAccListTopic, joyTopic, default_mode;
-	mg_msgs::PVATrajectory::ConstPtr global_path_msg;
+	mg_msgs::PVAYStampedTrajectory::ConstPtr global_path_msg;
+
+    double dt_nextpt, t_thispt;
 };
 
