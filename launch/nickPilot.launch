@@ -24,9 +24,9 @@
     <!-- NOTE: gps_kf sets initial pose/vel to 0 -->
 
     <!-- Safety params -->
-    <param name="accel_max" value="10"/>
-    <param name="vmax_for_timing" value="400"/> <!--Used for coarse timing/takeoff/etc -->
-    <param name="vmax_real" value="10"/> <!-- Used to determine need for intermediate waypoints -->
+    <param name="accel_max" value="1000"/>
+    <param name="vmax_for_timing" value="4000"/> <!--Used for coarse timing/takeoff/etc -->
+    <param name="vmax_real" value="1000"/> <!-- Used to determine need for intermediate waypoints -->
     <param name="waypointHitDist" value="0.0"/> <!-- Must be this close to record passage through wpt -->
         <!-- Set wptHitDist=0 to enable timing option -->
 

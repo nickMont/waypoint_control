@@ -268,15 +268,18 @@ void waypointControl::timerCallback(const ros::TimerEvent &event)
 
 void waypointControl::waypointListCallback(const mg_msgs::PVAYStampedTrajectory::ConstPtr &msg)
 {
+  std::cout << "got something" << std::endl;
 	//int nn= ;//length of pose list
 	numPathsSoFar++;
 	arrivalModeFlag=0;
 	if(msg) {
-		dt_nextpt = (global_path_msg->trajectory[1].header.stamp).toSec() - (global_path_msg->trajectory[0].header.stamp).toSec();
+		dt_nextpt = (msg->trajectory[1].header.stamp).toSec() - (msg->trajectory[0].header.stamp).toSec();
 		t_thispt = (ros::Time::now()).toSec();
-//		std::cout << "Trajectory received";
+		std::cout << "Trajectory received" << std::endl;
 		waypointListLen=msg->trajectory.size();
 		global_path_msg = msg;
+
+    std::cout << "total points: " << waypointListLen << std::endl;
 
 		//initialize waypoint counter
 		waypointCounter=0;
@@ -519,7 +522,7 @@ void waypointControl::updateArrivalTiming(const Eigen::Vector3d &cPose)
 
             errIntegral.setZero();
             //print status
-            //ROS_INFO("Waypoint time reached, moving to waypoint %f\t%f\t%f in %d steps",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2), stepsToNextWaypoint);
+            ROS_INFO("Waypoint time reached, moving to waypoint %f\t%f\t%f in %d steps",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2), stepsToNextWaypoint);
 		}else
 		{
 			if(arrivalModeFlag==0) //only print arrival message once
