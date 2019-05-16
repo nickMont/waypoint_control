@@ -47,7 +47,7 @@ public:
     */
 	double saturationF(double &xval, const double satbound);
 	void checkArrival(const Eigen::Vector3d &cPose);
-    void updateArrivalTiming(const Eigen::Vector3d &cPose);
+    void updateArrivalTiming();
 	void limitAcceleration(const Eigen::Vector3d &vv, Eigen::Vector3d &uu);
     Eigen::Vector3d vectorSaturationF(Eigen::Vector3d &vec1, const Eigen::Vector3d &vecSatbound);
 
@@ -68,7 +68,7 @@ private:
 	int counter, waypointListLen, waypointCounter, numPathsSoFar, stepsToNextWaypoint, stepCounter,
         arrivalModeFlag;
 	double waypointTime, poseTime, gpsfps, hitDist, dt_default, t0, dtNextWaypoint,
-            vmax_for_timing, vmax_real, quadMass, nextYaw_, PI, max_accel, pubRate_;
+            vmax_for_timing, vmax_real, quadMass, nextYaw_, PI, max_accel, pubRate_, takeoffHeight_;
     
 	//using Eigen when std::vector could be used instead in case we want to do matrix calcs with this stuff
 	Eigen::Vector3d errIntegral, vmax, arenaCenter, nextWaypoint_, uPID;

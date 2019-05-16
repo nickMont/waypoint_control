@@ -13,6 +13,8 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
       numPathsSoFar(0),
       arrivalModeFlag(0)
 {
+
+	takeoffHeight_=0;
     this->readROSParameters();
 
     errIntegral.setZero();
@@ -47,84 +49,6 @@ waypointControl::waypointControl(ros::NodeHandle &nh)
 	this->nextWaypoint_ = this->arenaCenter + Eigen::Vector3d(0,0,1) +
 		Eigen::Vector3d(initPose_->pose.pose.position.x, initPose_->pose.pose.position.y, initPose_->pose.pose.position.z);
 }
-
-
-void waypointControl::readROSParameters() 
-{
-    // Topic names
-	ros::param::get("waypoint_control_node/quadPoseTopic", quadPoseTopic);
-	ros::param::get("waypoint_control_node/quadWaypointTopic", quadWaypointTopic);
-	ros::param::get("waypoint_control_node/quadWaypointListTopic", quadWaypointListTopic);
-	ros::param::get("waypoint_control_node/joyTopic", joyTopic);
-	ros::param::get("waypoint_control_node/publishPVA_Topic", publishtopicname);
-	ros::param::get("waypoint_control_node/defaultMode",default_mode);
-	ros::param::get("waypoint_control_node/pubRate", pubRate_);
-
-	//confirm that parameters were read correctly
-	ROS_INFO("Preparing pose subscriber on channel %s",quadPoseTopic.c_str());
-	ROS_INFO("Preparing waypoint subscriber on channel %s",quadWaypointTopic.c_str());
-	ROS_INFO("Preparing waypointList subscriber on channel %s",quadWaypointListTopic.c_str());
-
-	// PID Parameters
-	ros::param::get("waypoint_control_node/kpX", kp(0));
-	ros::param::get("waypoint_control_node/kdX", kd(0));
-	ros::param::get("waypoint_control_node/kiX", ki(0));
-	ros::param::get("waypoint_control_node/kpY", kp(1));
-	ros::param::get("waypoint_control_node/kdY", kd(1));
-	ros::param::get("waypoint_control_node/kiY", ki(1));
-	ros::param::get("waypoint_control_node/kpZ", kp(2));
-	ros::param::get("waypoint_control_node/kdZ", kd(2));
-	ros::param::get("waypoint_control_node/kiZ", ki(2));
-	ros::param::get("waypoint_control_node/kfx", kf_ff(0));
-	ros::param::get("waypoint_control_node/kfy", kf_ff(1));
-	ros::param::get("waypoint_control_node/kfz", kf_ff(2));
-	ros::param::get("waypoint_control_node/maxInteg_X", eImax(0));
-	ros::param::get("waypoint_control_node/maxInteg_Y", eImax(1));
-	ros::param::get("waypoint_control_node/maxInteg_Z", eImax(2));
-	ros::param::get("waypoint_control_node/mass", quadMass);
-
-	// Parameters of px4_control
-	ros::param::get("waypoint_control_node/kpX_p", kp_pos(0));
-	ros::param::get("waypoint_control_node/kdX_p", kd_pos(0));
-	ros::param::get("waypoint_control_node/kiX_p", ki_pos(0));
-	ros::param::get("waypoint_control_node/kpY_p", kp_pos(1));
-	ros::param::get("waypoint_control_node/kdY_p", kd_pos(1));
-	ros::param::get("waypoint_control_node/kiY_p", ki_pos(1));
-	ros::param::get("waypoint_control_node/kpZ_p", kp_pos(2));
-	ros::param::get("waypoint_control_node/kdZ_p", kd_pos(2));
-	ros::param::get("waypoint_control_node/kiZ_p", ki_pos(2));
-	ros::param::get("waypoint_control_node/maxInteg_X_p", eImax_pos(0));
-	ros::param::get("waypoint_control_node/maxInteg_Y_p", eImax_pos(1));
-	ros::param::get("waypoint_control_node/maxInteg_Z_p", eImax_pos(2));
-
-	// Parameters of px4_control
-	ros::param::get("waypoint_control_node/kpX_h", kp_hov(0));
-	ros::param::get("waypoint_control_node/kdX_h", kd_hov(0));
-	ros::param::get("waypoint_control_node/kiX_h", ki_hov(0));
-	ros::param::get("waypoint_control_node/kpY_h", kp_hov(1));
-	ros::param::get("waypoint_control_node/kdY_h", kd_hov(1));
-	ros::param::get("waypoint_control_node/kiY_h", ki_hov(1));
-	ros::param::get("waypoint_control_node/kpZ_h", kp_hov(2));
-	ros::param::get("waypoint_control_node/kdZ_h", kd_hov(2));
-	ros::param::get("waypoint_control_node/kiZ_h", ki_hov(2));
-	ros::param::get("waypoint_control_node/maxInteg_X_h", eImax_hov(0));
-	ros::param::get("waypoint_control_node/maxInteg_Y_h", eImax_hov(1));
-	ros::param::get("waypoint_control_node/maxInteg_Z_h", eImax_hov(2));
-
-	// Safety parameters. Only currently in use to make intermediate points when initalizing
-	ros::param::get("waypoint_control_node/accel_max", max_accel);
-
-	// misc parameters
-	ros::param::get("waypoint_control_node/gps_fps", gpsfps);
-	ros::param::get("waypoint_control_node/waypointHitDist", hitDist);
-	ros::param::get("waypoint_control_node/xCenter", arenaCenter(0));
-	ros::param::get("waypoint_control_node/yCenter", arenaCenter(1));
-	ros::param::get("waypoint_control_node/zCenter", arenaCenter(2));
-	ros::param::get("waypoint_control_node/vmax_for_timing",vmax_for_timing);
-	ros::param::get("waypoint_control_node/vmax_real",vmax_real);
-
-}
-
 
 void waypointControl::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
@@ -173,40 +97,45 @@ void waypointControl::timerCallback(const ros::TimerEvent &event)
     	{
 			checkArrival(currentPose_);
 		}else{
-			updateArrivalTiming(currentPose_);
+			updateArrivalTiming();
 		}
-//		limitAcceleration(currentVelocity_,uPID);
+		
+		mg_msgs::PVA PVA_Ref_msg;
+		PVA_Ref_msg.yaw = nextYaw_;	//can try nonzero if optimal
+		//	std::cout<<nextYaw_<<std::endl;
+		
+		//fill message fields
+		//The proper way to do this is with discrete integration but handling it with substeps is close enough
+	    Eigen::Vector3d tmp;
 
-		//Move to next waypoint in multiple substeps
-		//Check to see if the window needs to increase in size
- 	    Eigen::Vector3d dt = (nextWaypoint_ - currentPose_)/vmaxToUse;  //normally use vmax_real here
-		double estStepsMaxVel = std::ceil(dt.lpNorm<Eigen::Infinity>() / dt_default);
 
-		if(estStepsMaxVel > stepsToNextWaypoint - stepCounter) //+1 to account for noise 
- 	    {
- 	       stepCounter--;
-	    }
+		//Working code that uses the underlying PID in px4_control.
+		tmp = nextWaypoint_;
+	 	//	ROS_INFO("x: %f  y: %f  z: %f",tmp2(0),tmp2(1),tmp2(2));
+		PVA_Ref_msg.Pos.x = tmp(0);
+		PVA_Ref_msg.Pos.y = tmp(1);
+		PVA_Ref_msg.Pos.z = tmp(2);
 
-		//get substep size
-		stepCounter++;
+		tmp = nextVelocity_;
+		PVA_Ref_msg.Vel.x=tmp(0);
+		PVA_Ref_msg.Vel.y=tmp(1);
+		PVA_Ref_msg.Vel.z=tmp(2);
 
-		//saturate substep size
-		substep=1-stepCounter*(1.0/stepsToNextWaypoint);
-		double subtemp=substep;
-		if(substep<0)
-		{
-			substep=0;
-		}else if(substep>1)
-		{
-			substep=1;
-		}
+		//px4_control uses accelerations for full FF reference
+		tmp = nextAcceleration_;
+		PVA_Ref_msg.Acc.x = tmp(0);
+		PVA_Ref_msg.Acc.y = tmp(1);
+		PVA_Ref_msg.Acc.z = tmp(2);
+		
+
+		pvaRef_pub_.publish(PVA_Ref_msg);
 		//ROS_INFO("Substep: %f",substep);
 	}else  //if no message has been received
 	{
 		//set next wpt to be stationary at arena center
 		//nextWaypoint_=arenaCenter; //desired init pose
 		//nextWaypoint_(2)=arenaCenter(2) + 1; //behavior of "take off and hover at 1m"
-		nextWaypoint_ = initLocationVec+Eigen::Vector3d(0,0,1);
+		nextWaypoint_ = initLocationVec+Eigen::Vector3d(0,0,takeoffHeight_);
 		nextVelocity_.setZero();
 		nextAcceleration_.setZero();
 		oldPose_=currentPose_;
@@ -225,43 +154,37 @@ void waypointControl::timerCallback(const ros::TimerEvent &event)
 			substep=0;
 		}
 		//ROS_INFO("Substep: %f",substep);
+
+		mg_msgs::PVA PVA_Ref_msg;
+		PVA_Ref_msg.yaw = nextYaw_;	//can try nonzero if optimal
+	//	std::cout<<nextYaw_<<std::endl;
+		
+		//fill message fields
+		//The proper way to do this is with discrete integration but handling it with substeps is close enough
+	    Eigen::Vector3d tmp, tmp2, uPID;
+		tmp = nextWaypoint_ - substep * (nextWaypoint_ - oldPose_);
+	    tmp2 = tmp-oldPose_;
+		PVA_Ref_msg.Pos.x = tmp(0);
+		PVA_Ref_msg.Pos.y = tmp(1);
+		PVA_Ref_msg.Pos.z = tmp(2);
+		tmp = nextVelocity_ - substep * (nextVelocity_ - oldVelocity_);
+		if(tmp.norm()>vmax_for_timing)
+		{tmp=tmp*vmax_for_timing/tmp.norm();}
+		PVA_Ref_msg.Vel.x=tmp(0);
+		PVA_Ref_msg.Vel.y=tmp(1);
+		PVA_Ref_msg.Vel.z=tmp(2);
+		tmp = (nextAcceleration_ - substep * (nextAcceleration_ - oldAcceleration_));
+		if(tmp.norm()>max_accel)
+		{tmp=tmp*max_accel/tmp.norm();}
+		PVA_Ref_msg.Acc.x = kf_ff(0)*tmp(0);
+		PVA_Ref_msg.Acc.y = kf_ff(1)*tmp(1);
+		PVA_Ref_msg.Acc.z = kf_ff(2)*tmp(2);
+		
+
+		pvaRef_pub_.publish(PVA_Ref_msg);
 	}
 
-	//uses the PVA message from px4_control package
-	mg_msgs::PVA PVA_Ref_msg;
-	PVA_Ref_msg.yaw = nextYaw_;	//can try nonzero if optimal
-//	std::cout<<nextYaw_<<std::endl;
-	
-	//fill message fields
-	//The proper way to do this is with discrete integration but handling it with substeps is close enough
-    Eigen::Vector3d tmp, tmp2, uPID;
 
-
-	//Working code that uses the underlying PID in px4_control.
-	tmp = nextWaypoint_ - substep * (nextWaypoint_ - oldPose_);
-    tmp2 = tmp-oldPose_;
- //	ROS_INFO("x: %f  y: %f  z: %f",tmp2(0),tmp2(1),tmp2(2));
-	PVA_Ref_msg.Pos.x = tmp(0);
-	PVA_Ref_msg.Pos.y = tmp(1);
-	PVA_Ref_msg.Pos.z = tmp(2);
-
-	tmp = nextVelocity_ - substep * (nextVelocity_ - oldVelocity_);
-	if(tmp.norm()>vmax_for_timing)
-	{tmp=tmp*vmax_for_timing/tmp.norm();}
-	PVA_Ref_msg.Vel.x=tmp(0);
-	PVA_Ref_msg.Vel.y=tmp(1);
-	PVA_Ref_msg.Vel.z=tmp(2);
-
-	//px4_control uses accelerations for full FF reference
-	tmp = (nextAcceleration_ - substep * (nextAcceleration_ - oldAcceleration_));
-	if(tmp.norm()>max_accel)
-	{tmp=tmp*max_accel/tmp.norm();}
-	PVA_Ref_msg.Acc.x = kf_ff(0)*tmp(0);
-	PVA_Ref_msg.Acc.y = kf_ff(1)*tmp(1);
-	PVA_Ref_msg.Acc.z = kf_ff(2)*tmp(2);
-	
-
-	pvaRef_pub_.publish(PVA_Ref_msg);
 	}
 }
 
@@ -279,7 +202,7 @@ void waypointControl::waypointListCallback(const mg_msgs::PVAYStampedTrajectory:
 		waypointListLen=msg->trajectory.size();
 		global_path_msg = msg;
 
-    std::cout << "total points: " << waypointListLen << std::endl;
+    	std::cout << "total points: " << waypointListLen << std::endl;
 
 		//initialize waypoint counter
 		waypointCounter=0;
@@ -315,11 +238,6 @@ void waypointControl::waypointListCallback(const mg_msgs::PVAYStampedTrajectory:
 		//estimated steps to next waypoint
         Eigen::Vector3d dt = (nextWaypoint_ - currentPose_)/vmax_for_timing;
 		stepsToNextWaypoint = ceil(dt.lpNorm<Eigen::Infinity>() / dt_default);
-//		ROS_INFO("dtx %f  dty %f  dtz %f  problemelement %f",dt(0),dt(1),dt(2),nextWaypoint_(2)-currentPose_(2));
-
-		//print update to user
-		//ROS_INFO("Moving to waypoint %f %f %f in %d steps", nextWaypoint_(0),
-		//			nextWaypoint_(1), nextWaypoint_(2), stepsToNextWaypoint);
 		ROS_INFO("Trajectory received.");
 	}
     else
@@ -328,220 +246,60 @@ void waypointControl::waypointListCallback(const mg_msgs::PVAYStampedTrajectory:
 	}
 }
 
-
-void waypointControl::waypointCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
+void waypointControl::updateArrivalTiming()
 {
-	double tempTime=(msg->header.stamp).toSec();
-	if(tempTime > waypointTime)	//if an update arrives late, ignore it
+	if(!global_path_msg) return;
+
+	
+	t_thispt = (ros::Time::now()).toSec();
+	if(waypointCounter < waypointListLen - 1)
 	{
-		waypointTime = tempTime;
+		waypointCounter++;
+		dt_nextpt = (global_path_msg->trajectory[waypointCounter].header.stamp).toSec() - (global_path_msg->trajectory[waypointCounter-1].header.stamp).toSec();
 
-		//read in next waypoint and offset by distance between origin and center
+        // Update the old waypoint info
+		this->oldPose_          = this->nextWaypoint_;
+		this->oldVelocity_      = this->nextVelocity_;
+		this->oldAcceleration_  = this->nextAcceleration_;
+
+        /* Update the new waypoint info */
         this->nextWaypoint_ = Eigen::Vector3d(
-		    msg->pose.position.x,
-		    msg->pose.position.y,
-		    msg->pose.position.z
-        ) + arenaCenter;
+		    global_path_msg->trajectory[waypointCounter].pos.x,
+		    global_path_msg->trajectory[waypointCounter].pos.y,
+	        global_path_msg->trajectory[waypointCounter].pos.z
+        );
 
+        this->nextVelocity_ = Eigen::Vector3d(
+	        global_path_msg->trajectory[waypointCounter].vel.linear.x,
+		    global_path_msg->trajectory[waypointCounter].vel.linear.y,
+		    global_path_msg->trajectory[waypointCounter].vel.linear.z
+        );
+
+        this->nextAcceleration_ = Eigen::Vector3d(
+            global_path_msg->trajectory[waypointCounter].acc.linear.x,
+		    global_path_msg->trajectory[waypointCounter].acc.linear.y,
+		    global_path_msg->trajectory[waypointCounter].acc.linear.z
+        );
+
+        
+        if(this->nextYaw_<0)
+        	{this->nextYaw_=this->nextYaw_+2*PI;}
+        ROS_INFO("Waypoint time reached, moving to waypoint %f\t%f\t%f in %d steps",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2), stepsToNextWaypoint);
+	}else
+	{
+		if(arrivalModeFlag==0) //only print arrival message once
+		{
+			ROS_INFO("Final waypoint reached, holding station.");
+		}
+		arrivalModeFlag=1;
+
+		//Set old VA to 0 to hold station
 		nextVelocity_.setZero();
 		nextAcceleration_.setZero();
-		oldPose_ = currentPose_;
-		oldVelocity_ = currentVelocity_;
+		oldVelocity_.setZero();
 		oldAcceleration_.setZero();
-        errIntegral.setZero();
 	}
 }
-
-
-double waypointControl::saturationF(double &xval, const double satbound)
-{
-	if(xval > satbound){		
-		xval = satbound;
-	}
-    else if(xval < -satbound){
-		xval = -satbound;
-	}
-}
-
-
-Eigen::Vector3d waypointControl::vectorSaturationF(Eigen::Vector3d &vec1, const Eigen::Vector3d &vecSatbound)
-{
-	for(int i=0; i<3; i++)
-	{
-		if(vec1(i) > vecSatbound(i)){
-			vec1(i) = vecSatbound(i);
-		}else if(vec1(i) < -1*vecSatbound(i)){
-			vec1(i) = -1*vecSatbound(i);
-		}
-	}
-}
-
-
-void waypointControl::limitAcceleration(const Eigen::Vector3d &vv, Eigen::Vector3d &uu)
-{}
-
-
-void waypointControl::checkArrival(const Eigen::Vector3d &cPose)
-{
-	if(!global_path_msg) return;
-
-    Eigen::Vector3d thisWaypoint = Eigen::Vector3d( 
-	    global_path_msg->trajectory[waypointCounter].pos.x,
-	    global_path_msg->trajectory[waypointCounter].pos.y,
-	    global_path_msg->trajectory[waypointCounter].pos.z
-    ) + arenaCenter;
-
-    /* BEGIN CHECK THIS */
-	// double thisDist=sqrt(pow(thisWaypoint(0)-cPose(0),2) + pow(thisWaypoint(1)-cPose(1),2) + pow(thisWaypoint(2)-cPose(2),2));
-    double thisDist = (thisWaypoint - cPose).norm();
-    /* END CHECK THIS */
-
-//	ROS_INFO("distcurr = %f",thisDist-hitDist);
-	if(thisDist < hitDist)
-	{
-		dt_nextpt = (global_path_msg->trajectory[1].header.stamp).toSec() - (global_path_msg->trajectory[0].header.stamp).toSec();
-		t_thispt = (ros::Time::now()).toSec();		
-//		t0=time0;
-		if(waypointCounter < waypointListLen - 1)
-		{
-			waypointCounter++;
-
-            // Update the old waypoint info
-			this->oldPose_          = this->nextWaypoint_;
-			this->oldVelocity_      = this->nextVelocity_;
-			this->oldAcceleration_  = this->nextAcceleration_;
-
-            /* Update the new waypoint info */
-            this->nextWaypoint_ = Eigen::Vector3d(
-			    global_path_msg->trajectory[waypointCounter].pos.x,
-			    global_path_msg->trajectory[waypointCounter].pos.y,
-		        global_path_msg->trajectory[waypointCounter].pos.z
-            ) + arenaCenter;
-
-            this->nextVelocity_ = Eigen::Vector3d(
-		        global_path_msg->trajectory[waypointCounter].vel.linear.x,
-			    global_path_msg->trajectory[waypointCounter].vel.linear.y,
-			    global_path_msg->trajectory[waypointCounter].vel.linear.z
-            );
-
-            this->nextAcceleration_ = Eigen::Vector3d(
-                global_path_msg->trajectory[waypointCounter].acc.linear.x,
-			    global_path_msg->trajectory[waypointCounter].acc.linear.y,
-			    global_path_msg->trajectory[waypointCounter].acc.linear.z
-            );
-
-			//if you have the next time, find segment chunks that correspond to it. Otherwise, guesstimate.
-			if(global_path_msg->trajectory[waypointCounter].header.stamp.toSec() > 1e-4 )
-			{
-				dtNextWaypoint=(global_path_msg->trajectory[waypointCounter].header.stamp).toSec() -
-									 (global_path_msg->trajectory[waypointCounter-1].header.stamp).toSec()
-									 -0.001;  //subtracting 0.001 to handle roundoff in minimum snap node			
-			}
-            else
-			{
-				//guesstimate timing
-                this->dtNextWaypoint =  ((nextWaypoint_ - cPose).cwiseQuotient(vmax)).lpNorm<Eigen::Infinity>();
-			}
-			stepsToNextWaypoint = ceil(dtNextWaypoint/dt_default);
-			stepCounter = 0;
-
-            errIntegral.setZero();
-			ROS_INFO("Waypoint reached, moving to waypoint %f\t%f\t%f",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2));
-		}else
-		{
-			if(arrivalModeFlag==0) //only print arrival message once
-			{
-				ROS_INFO("Final waypoint reached, holding station.");
-			}
-			arrivalModeFlag=1;
-
-			//Set old VA to 0 to hold station
-			nextVelocity_.setZero();
-			nextAcceleration_.setZero();
-			oldVelocity_.setZero();
-			oldAcceleration_.setZero();
-		}
-	}
-}
-
-void waypointControl::updateArrivalTiming(const Eigen::Vector3d &cPose)
-{
-	if(!global_path_msg) return;
-
-	if(stepCounter>=stepsToNextWaypoint)
-	{
-		dt_nextpt = (global_path_msg->trajectory[1].header.stamp).toSec() - (global_path_msg->trajectory[0].header.stamp).toSec();
-		t_thispt = (ros::Time::now()).toSec();
-		//if not at endpoint
-		if(waypointCounter < waypointListLen - 1)
-		{
-			waypointCounter++;
-
-            // Update the old waypoint info
-			this->oldPose_          = this->nextWaypoint_;
-			this->oldVelocity_      = this->nextVelocity_;
-			this->oldAcceleration_  = this->nextAcceleration_;
-
-            /* Update the new waypoint info */
-            this->nextWaypoint_ = Eigen::Vector3d(
-			    global_path_msg->trajectory[waypointCounter].pos.x,
-			    global_path_msg->trajectory[waypointCounter].pos.y,
-		        global_path_msg->trajectory[waypointCounter].pos.z
-            );
-
-            this->nextVelocity_ = Eigen::Vector3d(
-		        global_path_msg->trajectory[waypointCounter].vel.linear.x,
-			    global_path_msg->trajectory[waypointCounter].vel.linear.y,
-			    global_path_msg->trajectory[waypointCounter].vel.linear.z
-            );
-
-            this->nextAcceleration_ = Eigen::Vector3d(
-                global_path_msg->trajectory[waypointCounter].acc.linear.x,
-			    global_path_msg->trajectory[waypointCounter].acc.linear.y,
-			    global_path_msg->trajectory[waypointCounter].acc.linear.z
-            );
-
-            
-            if(this->nextYaw_<0)
-            	{this->nextYaw_=this->nextYaw_+2*PI;}
-
-			//if you have the next time, find segment chunks that correspond to it. Otherwise, guesstimate.
-			if(global_path_msg->trajectory[waypointCounter].header.stamp.toSec() > 1e-4 )
-			{
-				dtNextWaypoint=(global_path_msg->trajectory[waypointCounter].header.stamp).toSec() -
-									 (global_path_msg->trajectory[waypointCounter-1].header.stamp).toSec()
-									 -0.001;  //subtracting 0.001 to handle roundoff in minimum snap node			
-			}
-            else
-			{
-				//guesstimate timing
-                this->dtNextWaypoint =  ((nextWaypoint_ - cPose)/vmax_for_timing).lpNorm<Eigen::Infinity>();
-			}
-			stepsToNextWaypoint = ceil(dtNextWaypoint/dt_default);
-			stepCounter = 0;
-
-            errIntegral.setZero();
-            //print status
-            ROS_INFO("Waypoint time reached, moving to waypoint %f\t%f\t%f in %d steps",nextWaypoint_(0),nextWaypoint_(1),nextWaypoint_(2), stepsToNextWaypoint);
-		}else
-		{
-			if(arrivalModeFlag==0) //only print arrival message once
-			{
-				ROS_INFO("Final waypoint reached, holding station.");
-			}
-			arrivalModeFlag=1;
-
-			//Set old VA to 0 to hold station
-			nextVelocity_.setZero();
-			nextAcceleration_.setZero();
-			oldVelocity_.setZero();
-			oldAcceleration_.setZero();
-		}
-	}
-}
-
-
-
 
 
 

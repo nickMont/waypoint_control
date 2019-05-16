@@ -33,7 +33,7 @@ include_directories(
 )
 
 # Glob all of the source files together
-add_executable(waypoint_control src/main.cpp src/waypoint_control.cpp)
+add_executable(waypoint_control src/main.cpp src/waypoint_control.cpp src/helpers.cpp src/readrosparams.cpp)
 
 target_link_libraries(waypoint_control ${catkin_LIBRARIES})
 

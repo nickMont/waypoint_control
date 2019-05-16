@@ -23,6 +23,8 @@
     <param name="zCenter" value="0.0"/>
     <!-- NOTE: gps_kf sets initial pose/vel to 0 -->
 
+    <param name="takeoffHeight" value="0.5"/> <!--NEVER EXCEED 1-->
+
     <!-- Safety params -->
     <param name="accel_max" value="1000"/>
     <param name="vmax_for_timing" value="4000"/> <!--Used for coarse timing/takeoff/etc -->
