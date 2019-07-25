@@ -2,8 +2,7 @@
   <node pkg="waypoint_control"
     type="waypoint_control"
     name="waypoint_control_node"
-    output="screen"
-    ns="phoenix">
+    output="screen">
 
     <param name="defaultMode" value="hover"/> <!-- either goes to "hover" or "aggressive" mode by default. -->
 
@@ -11,7 +10,7 @@
     <param name="quadName" type="string" value="hippogriff"/>
     <param name="quadPoseTopic" type="string" value="ENU/local_odom"/>
     <param name="quadWaypointTopic" type="string" value="refPose1"/> <!-- topic for single wpts -->
-    <param name="quadWaypointListTopic" type="string" value="/phoenix/trajectory"/> <!-- topic for lists of wpts -->
+    <param name="quadWaypointListTopic" type="string" value="trajectory"/> <!-- topic for lists of wpts -->
     <param name="joyTopic" type="string" value="joy"/> <!-- topic for joystick data -->
     <param name="publishPVA_Topic" type="string" value="px4_control/PVA_Ref"/>
     <param name="gps_fps" value="1000"/>
